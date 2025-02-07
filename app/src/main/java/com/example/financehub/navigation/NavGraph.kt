@@ -1,17 +1,24 @@
 package com.example.financehub.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.navigation.NavHost
-import androidx.navigation.NavController
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.financehub.ui.HomeScreen
 import com.example.financehub.ui.AddExpense
+import com.example.financehub.navigation.Screens
 
 @Composable
-fun NavGraph(navController: NavController) {
-    NavHost(navController = navController, startDestination = "home") {
-        composable("home") { HomeScreen(navController) }
-        composable("details") { AddExpense(navController) }
+fun NavGraph(navController: NavHostController) {
+    NavHost(
+        navController = navController,
+        startDestination = Screens.HomeScreen.route
+    ) {
+        composable(route = "home") {
+            HomeScreen(navController = navController)
+        }
+        composable(route = "details") {
+            AddExpense(navController = navController)
+        }
     }
 }
