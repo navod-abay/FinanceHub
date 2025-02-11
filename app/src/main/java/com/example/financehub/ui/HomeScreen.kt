@@ -5,15 +5,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -21,23 +25,24 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.navigation.NavController
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.rememberNavController
 import com.example.financehub.R
-import com.example.financehub.navigation.Screens
+import com.example.financehub.ui.components.NavBar
 
 @Composable
 fun HomeScreen(navController: NavController) {
     Scaffold (
-        bottomBar = { BottomButtons(navController)},
+        bottomBar = { NavBar(navController) },
     ) {
         innerPadding ->
         Column (
-            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(16.dp))
@@ -50,8 +55,6 @@ fun HomeScreen(navController: NavController) {
             RecentTransactions(navController)
         }
     }
-    // BottomButtons(navController)
-
 }
 
 @Preview(showBackground = true)
@@ -69,9 +72,10 @@ fun RecentTransactions(navController: NavController) {
 fun Greeting(navController: NavController) {
     Row (
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
         ) {
-        Spacer(Modifier.width(16.dp))
+        // Spacer(Modifier.width(16.dp))
         Column  {
             Text("Hello", style = MaterialTheme.typography.headlineLarge)
             Text("Navod")
@@ -87,14 +91,33 @@ fun Greeting(navController: NavController) {
 
 @Composable
 fun SnapshotGrid(navController: NavController) {
-    Column {
-        Row {
+    val cardData = listOf(
+        "com.example.financehub.data.database.Expense Title 1" to "$120.00",
+        "com.example.financehub.data.database.Expense Title 2" to "$150.00",
+        "com.example.financehub.data.database.Expense Title 3" to "$200.00",
+        "com.example.financehub.data.database.Expense Title 4" to "$100.00"
+    )
 
-        }
-    }
-    Column {
-        Row {
-
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2), // 2 columns
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(cardData) { (title, amount) ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(text = title, style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = amount, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
         }
     }
 }
@@ -103,11 +126,11 @@ fun SnapshotGrid(navController: NavController) {
 fun TotalExpenditure(navController: NavController) {
     Box(
         modifier = Modifier
-            .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface)
-            .padding(16.dp)
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Column {
+        Column (horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = "Total Expenditure",
                 style = MaterialTheme.typography.titleLarge
@@ -120,52 +143,3 @@ fun TotalExpenditure(navController: NavController) {
     }
 }
 
-@Composable
-fun BottomButtons(
-    navController: NavController,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(16.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            Button(
-                onClick = {
-                    navController.navigate(Screens.AddExpense.route)
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Red
-                ),
-                modifier = Modifier.weight(1f).padding(end = 8.dp)
-            ) {
-                Text(
-                    text = "Add Expense",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color.White
-                )
-            }
-
-            Button(
-                onClick = {
-
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Green
-                ),
-                modifier = Modifier.weight(1f).padding(start = 8.dp)
-            ) {
-                Text(
-                    text = "Add Income",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color.White
-                )
-            }
-        }
-    }
-}
