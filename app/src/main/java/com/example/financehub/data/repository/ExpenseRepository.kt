@@ -1,3 +1,6 @@
+package com.example.financehub.data.repository
+
+import com.example.financehub.data.dao.ExpenseDao
 import com.example.financehub.data.database.Expense
 
 class ExpenseRepository(private val expenseDao: ExpenseDao) {

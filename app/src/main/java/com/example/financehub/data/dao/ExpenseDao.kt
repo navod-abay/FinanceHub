@@ -1,3 +1,4 @@
+package com.example.financehub.data.dao
 import androidx.room.*
 import com.example.financehub.data.database.Expense
 

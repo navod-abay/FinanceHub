@@ -1,8 +1,6 @@
 package com.example.financehub.ui
 
-import ExpenseDao
-import ExpenseRepository
-import ExpenseViewModel
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -30,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.rememberNavController
 import com.example.financehub.navigation.Screens
 import com.example.financehub.ui.components.NavBar
+import com.example.financehub.viewmodel.ExpenseViewModel
 
 @Composable
 fun AddExpense(navController: NavController, viewModel: ExpenseViewModel) {
@@ -62,7 +61,7 @@ fun AddExpense(navController: NavController, viewModel: ExpenseViewModel) {
             )
             Spacer(modifier = Modifier.height(16.dp))
             Button(onClick = {
-                viewModel.addExpense(title, amount.toDoubleOrNull() ?: 0.0)
+                viewModel.addExpense(title, amount = amount)
                 navController.navigate("home")
             }) {
                 Text("Submit")
@@ -74,5 +73,5 @@ fun AddExpense(navController: NavController, viewModel: ExpenseViewModel) {
 @Preview(showBackground = true)
 @Composable
 fun AddExpensePreview() {
-    AddExpense(navController = rememberNavController(), viewModel = ExpenseViewModel(ExpenseRepository(ExpenseDao())))
+    // AddExpense(navController = rememberNavController(), viewModel = ExpenseViewModel(ExpenseRepository(ExpenseDao())))
 }

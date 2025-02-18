@@ -42,7 +42,7 @@ fun HomeScreen(navController: NavController) {
         Column (
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(innerPadding.calculateTopPadding()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(16.dp))
@@ -92,10 +92,10 @@ fun Greeting(navController: NavController) {
 @Composable
 fun SnapshotGrid(navController: NavController) {
     val cardData = listOf(
-        "com.example.financehub.data.database.Expense Title 1" to "$120.00",
-        "com.example.financehub.data.database.Expense Title 2" to "$150.00",
-        "com.example.financehub.data.database.Expense Title 3" to "$200.00",
-        "com.example.financehub.data.database.Expense Title 4" to "$100.00"
+        "Title 2" to "$150.00",
+        "Title 3" to "$200.00",
+        "Title 4" to "$100.00",
+        "Title 1" to "$120.00",
     )
 
     LazyVerticalGrid(
