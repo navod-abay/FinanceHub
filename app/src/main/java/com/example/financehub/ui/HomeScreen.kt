@@ -22,19 +22,22 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.navigation.NavController
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.navigation.compose.rememberNavController
 import com.example.financehub.R
 import com.example.financehub.ui.components.NavBar
+import com.example.financehub.viewmodel.HomeScreenViewModel
 
 @Composable
-fun HomeScreen(navController: NavController) {
+fun HomeScreen(navController: NavController, viewModel: HomeScreenViewModel) {
     Scaffold (
         bottomBar = { NavBar(navController) },
     ) {
@@ -48,7 +51,7 @@ fun HomeScreen(navController: NavController) {
             Spacer(Modifier.height(16.dp))
             Greeting(navController)
             Spacer(Modifier.height(16.dp))
-            TotalExpenditure(navController)
+            TotalExpenditure(navController, viewModel = viewModel)
             Spacer(Modifier.height(16.dp))
             SnapshotGrid(navController)
             Spacer(Modifier.height(16.dp))
@@ -60,7 +63,7 @@ fun HomeScreen(navController: NavController) {
 @Preview(showBackground = true)
 @Composable
 fun HomeScreenPreview() {
-    HomeScreen(navController = rememberNavController())
+    // HomeScreen(navController = rememberNavController())
 }
 
 @Composable
@@ -119,11 +122,14 @@ fun SnapshotGrid(navController: NavController) {
                 }
             }
         }
+        
     }
 }
 
 @Composable
-fun TotalExpenditure(navController: NavController) {
+fun TotalExpenditure(navController: NavController, viewModel: HomeScreenViewModel) {
+    val monthlyTotal by viewModel.monthlyTotal.collectAsState()
+    val topTag by viewModel.topTagForMonth.collectAsState()
     Box(
         modifier = Modifier
             .background(MaterialTheme.colorScheme.surface)
@@ -136,8 +142,8 @@ fun TotalExpenditure(navController: NavController) {
                 style = MaterialTheme.typography.titleLarge
             )
             Text(
-                text = "Rs. 0",
-                style = MaterialTheme.typography.bodyLarge
+                text = monthlyTotal.toString(),
+                fontWeight = FontWeight.Bold
             )
         }
     }

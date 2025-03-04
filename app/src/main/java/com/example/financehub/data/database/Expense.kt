@@ -5,7 +5,10 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "expenses")
 data class Expense(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @PrimaryKey(autoGenerate = true) val expenseID: Int = 0,
     val title: String,
-    val amount: Int
+    val amount: Int,
+    val year: Int,
+    val month: Int,
+    val date: Int
 )
