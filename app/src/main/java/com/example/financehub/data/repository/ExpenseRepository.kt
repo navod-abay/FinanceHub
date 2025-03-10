@@ -1,12 +1,16 @@
 package com.example.financehub.data.repository
 
 import android.util.Log
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import androidx.room.Transaction
 import com.example.financehub.data.dao.ExpenseDao
 import com.example.financehub.data.dao.ExpenseTagsCrossRefDao
 import com.example.financehub.data.dao.TagsDao
 import com.example.financehub.data.database.Expense
 import com.example.financehub.data.database.ExpenseTagsCrossRef
+import com.example.financehub.data.database.ExpenseWithTags
 import com.example.financehub.data.database.TagWithAmount
 import com.example.financehub.data.database.Tags
 import kotlinx.coroutines.flow.Flow
@@ -54,6 +58,18 @@ class ExpenseRepository(
 
     }
 
+    fun getPagedExpenses(): Flow<PagingData<Expense>> {
+        return Pager(
+            config = PagingConfig(
+                pageSize = 20,          // Number of items per page
+                enablePlaceholders = false,
+                prefetchDistance = 5     // Start loading when 5 items from the end
+            )
+        ) {
+            expenseDao.getPagedExpenses()
+        }.flow
+    }
+
     fun getCurrentMonthTotal(currentMonth: Int, currentYear: Int): Flow<Int> {
         return expenseDao.getTotalAmountForMonth(currentYear, currentMonth)
             .map { total ->
@@ -68,9 +84,16 @@ class ExpenseRepository(
                 total
             }
     }
-
-    suspend fun getAllExpenses(): List<Expense> {
-        return expenseDao.getAllExpenses()
+    fun getPagedExpensesWithTags(): Flow<PagingData<ExpenseWithTags>> {
+        return Pager(
+            config = PagingConfig(
+                pageSize = 20,
+                enablePlaceholders = false,
+                prefetchDistance = 5
+            )
+        ) {
+            expenseDao.getPagedExpensesWithTags()
+        }.flow
     }
 
     fun getTopTagForMonth(currentMonth: Int, currentYear: Int): Flow<TagWithAmount> {
