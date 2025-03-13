@@ -101,4 +101,46 @@ class ExpenseRepository(
             it ?: TagWithAmount("No tag", 0)
         }
     }
+
+    fun getPagedTags(): Flow<PagingData<Tags>> {
+        return Pager(
+            config = PagingConfig(
+                pageSize = 20,
+                enablePlaceholders = false,
+                prefetchDistance = 5
+            )
+        ) {
+            tagDao.getPagedTags()
+        }.flow
+    }
+
+    // Inside ExpenseRepository implementation
+    suspend fun updateExpense(expense: Expense, tags: Set<String>) {
+        // Update the expense first
+        expenseDao.updateExpense(expense)
+
+        // Get all existing tags for this expense
+        val existingTagsForExpense = expenseTagsCrossRefDao.getTagsForExpense(expense.expenseID)
+
+        // Remove existing expense-tag cross references
+        expenseTagsCrossRefDao.deleteExpenseTagCrossRefs(expense.expenseID)
+
+        // Add new tags if they don't exist and create cross references
+        tags.forEach { tagText ->
+            // Check if tag exists
+            var tagId = tagDao.getTagIdByName(tagText)
+
+            // If tag doesn't exist, create it
+            if (tagId == null) {
+                val newTag = Tags(tag = tagText)
+                tagId = tagDao.insertTag(newTag).toInt()
+            }
+
+            // Create cross reference
+            expenseTagsCrossRefDao.insertExpenseTagsCrossRef(ExpenseTagsCrossRef(
+                expenseID = expense.expenseID,
+                tagID = tagId
+            ))
+        }
+    }
 }

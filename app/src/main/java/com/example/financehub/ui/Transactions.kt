@@ -14,11 +14,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -35,11 +39,15 @@ import androidx.navigation.NavController
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.example.financehub.data.database.ExpenseWithTags
+import com.example.financehub.navigation.Screens
+import com.example.financehub.ui.components.NavBar
 import com.example.financehub.viewmodel.TransactionsViewModel
 
 @Composable
 fun Transactions(navController: NavController, viewModel: TransactionsViewModel) {
-    Scaffold {
+    Scaffold (
+        bottomBar = { NavBar(navController) }
+    ){
         _ ->  Column {
             Text("Transactions")
             TransactionsList(navController, viewModel)
@@ -72,7 +80,13 @@ fun TransactionsList(navController: NavController, viewModel: TransactionsViewMo
             ) { index ->
                 val item = lazyPagingItems[index]
                 if (item != null) {
-                    TransactionItem(item)
+                    TransactionItem(
+                        item,
+                        onEditClick = {
+                            viewModel.selectExpenseForEdit(it)
+                            navController.navigate(Screens.EditExpense.route)
+                        }
+                        )
                 } else {
                     // Show placeholder or loading indicator
                     TransactionItemPlaceholder()
@@ -112,9 +126,13 @@ fun TransactionsList(navController: NavController, viewModel: TransactionsViewMo
 
 }
 
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun TransactionItem(item: ExpenseWithTags) {
+fun TransactionItem(
+    item: ExpenseWithTags,
+    onEditClick: (ExpenseWithTags) -> Unit
+    ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -132,11 +150,21 @@ fun TransactionItem(item: ExpenseWithTags) {
                     text = item.expense.title,
                     style = MaterialTheme.typography.titleMedium
                 )
-                Text(
-                    text = "$${item.expense.amount}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Row {
+                    IconButton(
+                        onClick = { onEditClick(item) },
+                    ) {
+                        Icon (
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit Transaction"
+                        )
+                    }
+                    Text(
+                        text = "${item.expense.amount} Rs.",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(4.dp))

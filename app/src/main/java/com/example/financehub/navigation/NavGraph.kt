@@ -10,9 +10,12 @@ import com.example.financehub.data.database.AppDatabase
 import com.example.financehub.data.repository.ExpenseRepository
 import com.example.financehub.ui.HomeScreen
 import com.example.financehub.ui.AddExpense
+import com.example.financehub.ui.EditExpenseScreen
+import com.example.financehub.ui.TagsScreen
 import com.example.financehub.ui.Transactions
 import com.example.financehub.viewmodel.ExpenseViewModel
 import com.example.financehub.viewmodel.HomeScreenViewModel
+import com.example.financehub.viewmodel.TagsViewModel
 import com.example.financehub.viewmodel.TransactionsViewModel
 
 @Composable
@@ -23,6 +26,8 @@ fun NavGraph(navController: NavHostController) {
     val expenseViewModel by lazy { ExpenseViewModel(repository) }
     val homeScreenViewModel by lazy { HomeScreenViewModel(repository) }
     val transactionsViewModel by lazy { TransactionsViewModel(repository) }
+    val tagsViewModel by lazy { TagsViewModel(repository) }
+
     NavHost(
         navController = navController,
         startDestination = Screens.HomeScreen.route
@@ -37,7 +42,10 @@ fun NavGraph(navController: NavHostController) {
             Transactions(navController = navController, viewModel = transactionsViewModel)
         }
         composable(route = "tags") {
-            AddExpense(navController = navController, viewModel = expenseViewModel)
+            TagsScreen(navController = navController, viewModel = tagsViewModel)
+        }
+        composable(route = Screens.EditExpense.route) {
+            EditExpenseScreen(navController = navController, viewModel = transactionsViewModel)
         }
     }
 }

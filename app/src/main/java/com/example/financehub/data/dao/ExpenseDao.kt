@@ -24,4 +24,10 @@ interface ExpenseDao {
     @Transaction
     @Query("SELECT * FROM expenses ORDER BY year DESC, month DESC, date DESC")
     fun getPagedExpensesWithTags(): PagingSource<Int, ExpenseWithTags>
+
+    @Update
+    suspend fun updateExpense(expense: Expense)
+
+
+
 }
