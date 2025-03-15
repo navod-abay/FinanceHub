@@ -49,9 +49,7 @@ fun ExpenseForm(
     var newTagText by remember { mutableStateOf("") }
 
     // Predefined tags (you can modify this list)
-    val predefinedTags = remember {
-        listOf("Food", "Transport", "Entertainment", "Utilities", "Shopping")
-    }
+    val suggestedTags by viewModel.matchingTags.collectAsState()
 
     Column(
         modifier = Modifier
@@ -155,7 +153,10 @@ fun ExpenseForm(
                     // Custom tag input
                     OutlinedTextField(
                         value = newTagText,
-                        onValueChange = { newTagText = it },
+                        onValueChange = {
+                            newTagText = it
+                            viewModel.updateQuery(it)
+                                        },
                         label = { Text("New Tag") },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -171,17 +172,17 @@ fun ExpenseForm(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        predefinedTags.forEach { tag ->
+                        suggestedTags.forEach { tag ->
                             FilterChip(
-                                selected = tag in selectedTags,
+                                selected = tag.tag in selectedTags,
                                 onClick = {
-                                    selectedTags = if (tag in selectedTags) {
-                                        selectedTags - tag
+                                    selectedTags = if (selectedTags.contains(tag.tag)) {
+                                        selectedTags - tag.tag
                                     } else {
-                                        selectedTags + tag
+                                        selectedTags + tag.tag
                                     }
                                 },
-                                label = { Text(tag) }
+                                label = { Text(tag.tag) }
                             )
                         }
                     }

@@ -53,7 +53,7 @@ fun HomeScreen(navController: NavController, viewModel: HomeScreenViewModel) {
             Spacer(Modifier.height(16.dp))
             TotalExpenditure(navController, viewModel = viewModel)
             Spacer(Modifier.height(16.dp))
-            SnapshotGrid(navController)
+            SnapshotGrid(navController, viewModel)
             Spacer(Modifier.height(16.dp))
             RecentTransactions(navController)
         }
@@ -93,9 +93,10 @@ fun Greeting(navController: NavController) {
 
 
 @Composable
-fun SnapshotGrid(navController: NavController) {
+fun SnapshotGrid(navController: NavController, viewModel: HomeScreenViewModel) {
+    val highestTag = viewModel.highestTag.collectAsState()
     val cardData = listOf(
-        "Title 2" to "$150.00",
+        "Most spent tag" to highestTag.value.tag,
         "Title 3" to "$200.00",
         "Title 4" to "$100.00",
         "Title 1" to "$120.00",
@@ -129,7 +130,6 @@ fun SnapshotGrid(navController: NavController) {
 @Composable
 fun TotalExpenditure(navController: NavController, viewModel: HomeScreenViewModel) {
     val monthlyTotal by viewModel.monthlyTotal.collectAsState()
-    val topTag by viewModel.topTagForMonth.collectAsState()
     Box(
         modifier = Modifier
             .background(MaterialTheme.colorScheme.surface)

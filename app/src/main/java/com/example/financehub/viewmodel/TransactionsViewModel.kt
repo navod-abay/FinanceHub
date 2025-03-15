@@ -23,9 +23,11 @@ class TransactionsViewModel(private val repository: ExpenseRepository): ViewMode
         _selectedExpense.value = null
     }
 
-    fun updateExpense(expenseId: Int, title: String, amount: Int, year: Int, month: Int, date: Int, tags: Set<String>) {
+    fun updateExpense(expenseId: Int, title: String, amount: Int, year: Int, month: Int, date: Int, newTags: Set<String>, oldTags: Set<String>) {
         viewModelScope.launch {
-            repository.updateExpense(Expense(expenseId, title, amount, year, month, date), tags)
+            val addedTags = newTags - oldTags
+            val removedTags = oldTags - newTags
+            repository.updateExpense(Expense(expenseId, title, amount, year, month, date), addedTags, removedTags)
         }
 
     }

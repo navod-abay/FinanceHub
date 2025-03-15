@@ -15,4 +15,7 @@ interface ExpenseTagsCrossRefDao {
 
     @Query("SELECT * FROM tags INNER JOIN expense_tags ON tags.tagID = expense_tags.tagID WHERE expense_tags.expenseID = :expenseID")
     suspend fun getTagsForExpense(expenseID: Int): List<Tags>
+
+    @Delete
+    suspend fun deleteExpenseTagsCrossRef(ref: ExpenseTagsCrossRef)
 }

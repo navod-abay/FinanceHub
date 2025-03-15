@@ -14,9 +14,8 @@ interface TagsDao {
     @Query("SELECT tagID FROM tags WHERE tag=:tag")
     suspend fun getTagIDbyTag(tag: String): Int?
 
-    @Query("UPDATE tags SET monthlyAmount = monthlyAmount + :amount, currentMonth = currentMonth, currentYear = currentYear  WHERE tagID = :tagID")
-    suspend fun incrementAmount(tagID: Int, amount: Int, currentMonth: Int, currentYear: Int) {
-    }
+    @Query("UPDATE tags SET monthlyAmount = monthlyAmount + :amount, currentMonth = :currentMonth, currentYear = :currentYear  WHERE tagID = :tagID")
+    suspend fun incrementAmount(tagID: Int, amount: Int, currentMonth: Int, currentYear: Int)
 
     @Query("SELECT * FROM tags WHERE currentMonth = :currentMonth AND currentYear = :currentYear ORDER BY monthlyAmount DESC LIMIT 1")
     fun getTopTagForMonth(currentMonth: Int, currentYear: Int): Flow<TagWithAmount?>
@@ -26,5 +25,14 @@ interface TagsDao {
 
     @Query("SELECT tagID FROM tags WHERE tag = :tagName LIMIT 1")
     suspend fun getTagIdByName(tagName: String): Int?
+
+    @Query("SELECT * FROM tags WHERE tag = :tag LIMIT 1")
+    suspend fun getTagbyTag(tag: String): Tags?
+
+    @Query("UPDATE tags SET monthlyAmount = monthlyAmount - :amount WHERE tagID = :tagID")
+    suspend fun decrementAmount(tagID: Int, amount: Int)
+
+    @Query("SELECT * FROM tags WHERE tag LIKE :query || '%'")
+    fun getMatchingTags(query: String): Flow<List<Tags>>
 
 }

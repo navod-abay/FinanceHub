@@ -26,34 +26,7 @@ class ExpenseRepository(
     suspend fun insertExpense(expense: Expense, tags: Set<String>) {
         val expenseID = expenseDao.insertExpense(expense).toInt()
         tags.forEach { tag ->
-            run {
-                var tagID = tagDao.getTagIDbyTag(tag)
-                val calendar = Calendar.getInstance()
-                val currentMonth = calendar.get(Calendar.MONTH) // Calendar months are 0-based
-                val currentYear = calendar.get(Calendar.YEAR)
-                if (tagID == null) {
-                    val currentDay = calendar.get(Calendar.DAY_OF_MONTH)
-                    tagID = tagDao.insertTag(
-                        Tags(
-                            tag = tag,
-                            monthlyAmount = expense.amount,
-                            currentMonth = currentMonth,
-                            currentYear = currentYear,
-                            createdDay = currentDay,
-                            createdMonth = currentMonth,
-                            createdYear = currentYear
-                        )
-                    ).toInt()
-                } else {
-                    tagDao.incrementAmount(tagID, expense.amount, currentMonth, currentYear)
-                }
-                expenseTagsCrossRefDao.insertExpenseTagsCrossRef(
-                    ExpenseTagsCrossRef(
-                        expenseID = expenseID,
-                        tagID = tagID
-                    )
-                )
-            }
+           addTagforExpense(expenseID, expense.amount, tag)
         }
 
     }
@@ -115,32 +88,57 @@ class ExpenseRepository(
     }
 
     // Inside ExpenseRepository implementation
-    suspend fun updateExpense(expense: Expense, tags: Set<String>) {
-        // Update the expense first
+    suspend fun updateExpense(expense: Expense, addedTags: Set<String>, removedTags:Set<String>) {
         expenseDao.updateExpense(expense)
 
-        // Get all existing tags for this expense
-        val existingTagsForExpense = expenseTagsCrossRefDao.getTagsForExpense(expense.expenseID)
-
-        // Remove existing expense-tag cross references
-        expenseTagsCrossRefDao.deleteExpenseTagCrossRefs(expense.expenseID)
-
-        // Add new tags if they don't exist and create cross references
-        tags.forEach { tagText ->
-            // Check if tag exists
-            var tagId = tagDao.getTagIdByName(tagText)
-
-            // If tag doesn't exist, create it
-            if (tagId == null) {
-                val newTag = Tags(tag = tagText)
-                tagId = tagDao.insertTag(newTag).toInt()
-            }
-
-            // Create cross reference
-            expenseTagsCrossRefDao.insertExpenseTagsCrossRef(ExpenseTagsCrossRef(
-                expenseID = expense.expenseID,
-                tagID = tagId
-            ))
+        removedTags.forEach { tagText ->
+            removeTagFromExpense(expense.expenseID, expense.amount, tagText)
         }
+        addedTags.forEach { tagText ->
+            addTagforExpense(expense.expenseID, expense.amount, tagText)
+        }
+    }
+
+    private suspend fun removeTagFromExpense(expenseID: Int, amount: Int, tagString: String) {
+        val tag = tagDao.getTagbyTag(tagString)
+        if (tag != null) {
+            expenseTagsCrossRefDao.deleteExpenseTagsCrossRef(ExpenseTagsCrossRef(expenseID, tag.tagID))
+            tagDao.decrementAmount(tag.tagID, amount)
+        }
+    }
+
+    private suspend fun addTagforExpense(expenseID: Int, amount: Int, tag: String) {
+
+            var tagID = tagDao.getTagIDbyTag(tag)
+            val calendar = Calendar.getInstance()
+            val currentMonth = calendar.get(Calendar.MONTH) // Calendar months are 0-based
+            val currentYear = calendar.get(Calendar.YEAR)
+            if (tagID == null) {
+                val currentDay = calendar.get(Calendar.DAY_OF_MONTH)
+                tagID = tagDao.insertTag(
+                    Tags(
+                        tag = tag,
+                        monthlyAmount = amount,
+                        currentMonth = currentMonth,
+                        currentYear = currentYear,
+                        createdDay = currentDay,
+                        createdMonth = currentMonth,
+                        createdYear = currentYear
+                    )
+                ).toInt()
+            } else {
+                tagDao.incrementAmount(tagID, amount, currentMonth, currentYear)
+            }
+            expenseTagsCrossRefDao.insertExpenseTagsCrossRef(
+                ExpenseTagsCrossRef(
+                    expenseID = expenseID,
+                    tagID = tagID
+                )
+            )
+
+    }
+
+    fun getMatchingTags(query: String): Flow<List<Tags>> {
+        return tagDao.getMatchingTags(query)
     }
 }

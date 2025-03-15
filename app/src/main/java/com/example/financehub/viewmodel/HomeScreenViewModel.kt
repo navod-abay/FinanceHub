@@ -17,14 +17,12 @@ class HomeScreenViewModel(
     private val repository: ExpenseRepository
 ) : ViewModel() {
 
+    private  val _highestTag = MutableStateFlow<TagWithAmount>(TagWithAmount("Loading...", 0))
+    val highestTag: StateFlow<TagWithAmount> = _highestTag
 
     // LiveData for monthly total
     private val _monthlyTotal = MutableStateFlow<Int>(0)
     val monthlyTotal: StateFlow<Int> = _monthlyTotal
-
-    // LiveData for top tag
-    private val _topTag = MutableStateFlow<TagWithAmount>(TagWithAmount("Loading...", 0))
-    val topTagForMonth: StateFlow<TagWithAmount> = _topTag
 
     init {
         val calendar = Calendar.getInstance()
@@ -39,7 +37,7 @@ class HomeScreenViewModel(
                 Pair(total, topTag)
             }.map { (total, topTag) ->
                 _monthlyTotal.value = total
-                _topTag.value = TagWithAmount(topTag.tag, 0)
+                _highestTag.value = TagWithAmount(topTag.tag, 0)
             }.collect {}
         }
     }

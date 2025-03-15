@@ -236,7 +236,8 @@ fun ExpenseEditForm(
                                     year = year.toInt(),
                                     month = month.toInt(),
                                     date = date.toInt(),
-                                    tags = selectedTags
+                                    newTags = selectedTags,
+                                    oldTags = initialTags
                                 )
                                 navController.navigateUp()
                                 viewModel.clearSelectedExpense()
