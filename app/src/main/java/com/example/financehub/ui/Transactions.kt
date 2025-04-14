@@ -1,34 +1,18 @@
 package com.example.financehub.ui
 
+import android.app.DatePickerDialog
+import android.widget.DatePicker
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -37,20 +21,51 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.paging.LoadState
+import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.filter
 import com.example.financehub.data.database.ExpenseWithTags
 import com.example.financehub.navigation.Screens
 import com.example.financehub.ui.components.NavBar
 import com.example.financehub.viewmodel.TransactionsViewModel
+import kotlinx.coroutines.flow.map
+import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Calendar
+import java.util.Locale
 
 @Composable
 fun Transactions(navController: NavController, viewModel: TransactionsViewModel) {
     Scaffold (
         bottomBar = { NavBar(navController) }
     ){
+
         _ ->  Column {
+        var searchQuery by remember { mutableStateOf("") }
+        var selectedDate by remember { mutableStateOf<Calendar?>(null) }
+        val transactionsFlow = viewModel.pagedExpenses
+
+
+        val filteredTransactionsFlow = remember(searchQuery, selectedDate) {
+            transactionsFlow.map { pagingData ->
+                pagingData.filter { transaction ->
+                    val matchesSearch = searchQuery.isEmpty() ||
+                            transaction.expense.title.contains(searchQuery, ignoreCase = true)
+
+                    val matchesDate = selectedDate?.let { date ->
+                        transaction.expense.year == selectedDate!!.get(Calendar.YEAR) &&
+                                transaction.expense.month == selectedDate!!.get(Calendar.MONTH) + 1 && // Calendar months are 0-based
+                                transaction.expense.date == selectedDate!!.get(Calendar.DAY_OF_MONTH)
+                    } ?: true
+
+                    matchesSearch && matchesDate
+                }
+            }
+        }
             Text("Transactions")
-            TransactionsList(navController, viewModel)
+            SearchWithDateFilter(searchQuery = searchQuery, onSearchQueryChange = { searchQuery = it }, selectedDate = selectedDate, onDateSelected = {selectedDate = it })
+            TransactionsList(navController, viewModel, filteredTransactionsFlow.collectAsLazyPagingItems())
     }
 
     }
@@ -65,8 +80,8 @@ fun TransactionsPreview() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TransactionsList(navController: NavController, viewModel: TransactionsViewModel) {
-    val lazyPagingItems = viewModel.pagedExpenses.collectAsLazyPagingItems()
+fun TransactionsList(navController: NavController, viewModel: TransactionsViewModel, lazyPagingItems: LazyPagingItems<ExpenseWithTags>) {
+
 
     Column {
         TopAppBar(
@@ -124,6 +139,109 @@ fun TransactionsList(navController: NavController, viewModel: TransactionsViewMo
             }
         }
 
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SearchWithDateFilter(
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    selectedDate: Calendar?,
+    onDateSelected: (Calendar?) -> Unit
+) {
+    var showDatePicker by remember { mutableStateOf(false) }
+    val dateFormatter = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Search Bar
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = onSearchQueryChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            placeholder = { Text("Search transactions") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { onSearchQueryChange("") }) {
+                        Icon(Icons.Default.Close, contentDescription = "Clear search")
+                    }
+                }
+            },
+            singleLine = true,
+            shape = MaterialTheme.shapes.medium
+        )
+
+        // Date Filter
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(
+                onClick = { showDatePicker = true },
+                modifier = Modifier.padding(end = 8.dp)
+            ) {
+                Icon(
+                    Icons.Default.CalendarMonth,
+                    contentDescription = "Calendar",
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Filter by date")
+            }
+
+            selectedDate?.let { date ->
+                Spacer(modifier = Modifier.weight(1f))
+
+                FilterChip(
+                    selected = true,
+                    onClick = { onDateSelected(null) },
+                    label = { Text(dateFormatter.format(date.time)) },
+                    trailingIcon = {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Clear date filter",
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                )
+            }
+        }
+    }
+
+    // Date Picker Dialog
+    if (showDatePicker) {
+        val initialCalendar = selectedDate ?: Calendar.getInstance()
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = initialCalendar.timeInMillis
+        )
+
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val calendar = Calendar.getInstance()
+                        calendar.timeInMillis = millis
+                        onDateSelected(calendar)
+                    }
+                    showDatePicker = false
+                }) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancel")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 }
 
 

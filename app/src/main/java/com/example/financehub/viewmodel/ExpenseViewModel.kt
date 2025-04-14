@@ -21,10 +21,9 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
 
     private val _monthlyTotal = MutableStateFlow(0)
 
-    fun addExpense(title: String, amount: Int, tags: Set<String>) {
+    fun addExpense(title: String, amount: Int, tags: Set<String>, day: Int, month:Int, year:Int ) {
         viewModelScope.launch {
-            val date = Date() // Current date
-            val (day, month, year) = getDateComponents(date)
+
             repository.insertExpense(Expense(title = title, amount = amount, date = day, month = month, year = year), tags = tags)
         }
     }

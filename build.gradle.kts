@@ -5,6 +5,5 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
 }
 dependencies {
-    val nav_version = "2.8.5"
 
 }

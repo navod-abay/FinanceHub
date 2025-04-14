@@ -1,6 +1,8 @@
 package com.example.financehub.ui.components
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Tag
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Icon
@@ -18,6 +20,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.financehub.R
 import com.example.financehub.navigation.Screens
+import com.google.firebase.database.core.Tag
 
 data class BottomNavItem(
     val name: String,
@@ -41,12 +44,12 @@ fun NavBar(navController: NavController) {
         BottomNavItem(
             name = stringResource(id = R.string.transactions),
             route = Screens.Transactions.route,
-            icon = Icons.Filled.Add
+            icon = Icons.Filled.Payments
         ),
         BottomNavItem(
             name = stringResource(id = R.string.tags),
             route = Screens.Tags.route,
-            icon = Icons.Filled.Add
+            icon = Icons.Filled.Tag
         ),
 
         )
