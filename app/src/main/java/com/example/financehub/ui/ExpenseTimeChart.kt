@@ -1,0 +1,190 @@
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.financehub.data.repository.TimeSeriesPoint
+import java.time.format.DateTimeFormatter
+
+
+/**
+ * A composable function that displays expense data over time
+ * @param timeData List of time series points
+ * @param modifier Modifier for the composable
+ */
+@Composable
+fun ExpenseTimeChart(
+    timeData: List<TimeSeriesPoint>,
+    modifier: Modifier = Modifier
+) {
+    if (timeData.isEmpty() || timeData.size < 2) return
+
+    // Sort data points by date
+    val sortedData = timeData.sortedBy { it.date }
+
+    // Get min and max values for scaling
+    val minDate = sortedData.first().date
+    val maxDate = sortedData.last().date
+    val maxAmount = sortedData.maxOf { it.amount }
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "Expense Trend",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            // Date range display
+            val dateFormatter = DateTimeFormatter.ofPattern("MMM d")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = minDate.format(dateFormatter),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = maxDate.format(dateFormatter),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Line chart
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.BottomStart
+            ) {
+                Canvas(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    val canvasWidth = size.width
+                    val canvasHeight = size.height
+                    val primaryColor = Color(0xFF6200EE)
+
+                    // Calculate horizontal and vertical scaling factors
+                    val dateRange = java.time.temporal.ChronoUnit.DAYS.between(minDate, maxDate).toFloat()
+                    val horizontalScale = canvasWidth / dateRange
+                    val verticalScale = if (maxAmount > 0) canvasHeight / maxAmount.toFloat() else 0f
+
+                    // Draw axes
+                    drawLine(
+                        color = Color.Gray,
+                        start = Offset(0f, canvasHeight),
+                        end = Offset(canvasWidth, canvasHeight),
+                        strokeWidth = 1f
+                    )
+
+                    drawLine(
+                        color = Color.Gray,
+                        start = Offset(0f, 0f),
+                        end = Offset(0f, canvasHeight),
+                        strokeWidth = 1f
+                    )
+
+                    // Draw the line connecting all points
+                    val path = Path()
+                    var prevPoint: Offset? = null
+
+                    sortedData.forEachIndexed { index, point ->
+                        val daysSinceStart = java.time.temporal.ChronoUnit.DAYS.between(minDate, point.date).toFloat()
+                        val x = daysSinceStart * horizontalScale
+                        val y = canvasHeight - (point.amount * verticalScale)
+
+                        val currentPoint = Offset(x, y)
+
+                        if (index == 0) {
+                            path.moveTo(currentPoint.x, currentPoint.y)
+                        } else {
+                            path.lineTo(currentPoint.x, currentPoint.y)
+                        }
+
+                        // Draw points at each data point
+                        drawCircle(
+                            color = primaryColor,
+                            radius = 5f,
+                            center = currentPoint
+                        )
+
+                        // Connect points with a line
+                        if (prevPoint != null) {
+                            drawLine(
+                                color = primaryColor,
+                                start = prevPoint!!,
+                                end = currentPoint,
+                                strokeWidth = 3f,
+                                cap = StrokeCap.Round
+                            )
+                        }
+
+                        prevPoint = currentPoint
+                    }
+
+                    // Draw the line path with a shadow
+                    drawPath(
+                        path = path,
+                        color = primaryColor,
+                        style = Stroke(
+                            width = 3f,
+                            cap = StrokeCap.Round
+                        )
+                    )
+                }
+            }
+
+            // Y-axis labels
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "0",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                if (maxAmount > 0) {
+                    val formatter = java.text.NumberFormat.getCurrencyInstance()
+                    Text(
+                        text = formatter.format(maxAmount / 100.0),
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.End
+                    )
+                }
+            }
+        }
+    }
+}

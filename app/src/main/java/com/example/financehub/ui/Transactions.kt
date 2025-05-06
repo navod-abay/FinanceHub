@@ -1,7 +1,5 @@
 package com.example.financehub.ui
 
-import android.app.DatePickerDialog
-import android.widget.DatePicker
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,8 +28,6 @@ import com.example.financehub.ui.components.NavBar
 import com.example.financehub.viewmodel.TransactionsViewModel
 import kotlinx.coroutines.flow.map
 import java.text.SimpleDateFormat
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Locale
 

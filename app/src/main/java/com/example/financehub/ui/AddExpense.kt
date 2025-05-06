@@ -130,7 +130,7 @@ fun ExpenseForm(
                 )
             )
             OutlinedTextField(
-                    value = monthState.toString() + 1,
+                    value = (monthState + 1).toString(),
             onValueChange = { monthState = it.toInt() - 1 },
             label = { Text("Month") },
             modifier = Modifier.weight(1f).focusRequester(lastNameFocusRequester),

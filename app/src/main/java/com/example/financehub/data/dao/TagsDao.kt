@@ -35,4 +35,12 @@ interface TagsDao {
     @Query("SELECT * FROM tags WHERE tag LIKE :query || '%'")
     fun getMatchingTags(query: String): Flow<List<Tags>>
 
+    @Query("SELECT * FROM tags ORDER BY tag ASC")
+    fun getAllTags(): Flow<List<Tags>>
+
+    @Update
+    suspend fun updateTag(tag: Tags)
+
+
+
 }

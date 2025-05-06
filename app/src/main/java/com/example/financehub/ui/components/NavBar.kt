@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -20,7 +21,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.financehub.R
 import com.example.financehub.navigation.Screens
-import com.google.firebase.database.core.Tag
 
 data class BottomNavItem(
     val name: String,
@@ -51,9 +51,13 @@ fun NavBar(navController: NavController) {
             route = Screens.Tags.route,
             icon = Icons.Filled.Tag
         ),
+        BottomNavItem(
+            name = stringResource(id = R.string.analysis),
+            route = Screens.Analysis.route,
+            icon = Icons.Filled.BarChart
 
         )
-
+    )
     NavigationBar(
         containerColor = Color.White
     ) {

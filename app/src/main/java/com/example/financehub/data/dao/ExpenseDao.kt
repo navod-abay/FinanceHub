@@ -28,6 +28,29 @@ interface ExpenseDao {
     @Update
     suspend fun updateExpense(expense: Expense)
 
+    @Transaction
+    @Query("""
+        SELECT * FROM expenses 
+        WHERE (year > :startYear OR (year = :startYear AND month > :startMonth) OR (year = :startYear AND month = :startMonth AND date >= :startDay))
+        AND (year < :endYear OR (year = :endYear AND month < :endMonth) OR (year = :endYear AND month = :endMonth AND date <= :endDay))
+        ORDER BY year DESC, month DESC, date DESC
+    """)
+    fun getExpensesWithTagsInDateRange(
+        startYear: Int, startMonth: Int, startDay: Int,
+        endYear: Int, endMonth: Int, endDay: Int
+    ): Flow<List<ExpenseWithTags>>
+
+    @Query("""
+        SELECT * FROM expenses 
+        WHERE (year > :startYear OR (year = :startYear AND month > :startMonth) OR (year = :startYear AND month = :startMonth AND date >= :startDay))
+        AND (year < :endYear OR (year = :endYear AND month < :endMonth) OR (year = :endYear AND month = :endMonth AND date <= :endDay))
+        ORDER BY year DESC, month DESC, date DESC
+    """)
+    fun getExpensesInDateRange(
+        startYear: Int, startMonth: Int, startDay: Int,
+        endYear: Int, endMonth: Int, endDay: Int
+    ): Flow<List<ExpenseWithTags>>
+
 
 
 }
