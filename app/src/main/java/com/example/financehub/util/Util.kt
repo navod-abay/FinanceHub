@@ -8,7 +8,7 @@ import java.util.Date
 fun getDateComponents(date: Date): Triple<Int, Int, Int> {
     val calendar = Calendar.getInstance().apply { time = date }
     val day = calendar.get(Calendar.DAY_OF_MONTH)
-    val month = calendar.get(Calendar.MONTH) // Months are zero-based
+    val month = calendar.get(Calendar.MONTH) + 1// Months are one-based
     val year = calendar.get(Calendar.YEAR)
     return Triple(day, month, year)
 }

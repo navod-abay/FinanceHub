@@ -27,7 +27,7 @@ class HomeScreenViewModel(
     init {
         val calendar = Calendar.getInstance()
         val currentYear = calendar.get(Calendar.YEAR)
-        val currentMonth = calendar.get(Calendar.MONTH)
+        val currentMonth = calendar.get(Calendar.MONTH) + 1
 
         viewModelScope.launch {
             combine(

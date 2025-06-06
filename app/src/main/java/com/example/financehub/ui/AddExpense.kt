@@ -24,8 +24,7 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import com.example.financehub.util.getDateComponents
-import java.util.Date
+
 
 @Composable
 fun AddExpense(navController: NavController, viewModel: ExpenseViewModel) {
@@ -50,13 +49,6 @@ fun ExpenseForm(
     viewModel: ExpenseViewModel,
     navController: NavController
 ) {
-    val date = Date() // Current date
-    val (day, month, year) = getDateComponents(date)
-    var name by remember { mutableStateOf("") }
-    var amount by remember { mutableStateOf("") }
-    var dayState by remember { mutableIntStateOf(day)}
-    var monthState by remember { mutableIntStateOf(month)}
-    var yearState by remember { mutableIntStateOf(year)}
     var selectedTags by remember { mutableStateOf(setOf<String>()) }
     var showTagDialog by remember { mutableStateOf(false) }
     var newTagText by remember { mutableStateOf("") }
@@ -73,8 +65,8 @@ fun ExpenseForm(
     ) {
         // Name field
         OutlinedTextField(
-            value = name,
-            onValueChange = { name = it },
+            value = viewModel.name.value,
+            onValueChange = { viewModel.name.value = it },
             label = { Text("Expense Name") },
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(
@@ -91,8 +83,8 @@ fun ExpenseForm(
 
         // Amount field
         OutlinedTextField(
-            value = amount,
-            onValueChange = { amount = it },
+            value = viewModel.amount.value,
+            onValueChange = { viewModel.amount.value = it },
             label = { Text("Amount") },
             modifier = Modifier.fillMaxWidth().focusRequester(lastNameFocusRequester),
             keyboardOptions = KeyboardOptions(
@@ -113,8 +105,10 @@ fun ExpenseForm(
             horizontalArrangement = Arrangement.SpaceEvenly
         ){
             OutlinedTextField(
-                value = dayState.toString(),
-                onValueChange = { dayState = it.toInt() },
+                value = viewModel.dayState.value,
+                onValueChange = {
+                    viewModel.dayState.value = it
+                },
                 label = { Text("Day") },
                 modifier = Modifier.weight(1f).focusRequester(lastNameFocusRequester),
                 keyboardOptions = KeyboardOptions(
@@ -130,8 +124,11 @@ fun ExpenseForm(
                 )
             )
             OutlinedTextField(
-                    value = (monthState + 1).toString(),
-            onValueChange = { monthState = it.toInt() - 1 },
+                    value = viewModel.monthState.value,
+            onValueChange = {
+                viewModel.monthState.value = it
+
+            },
             label = { Text("Month") },
             modifier = Modifier.weight(1f).focusRequester(lastNameFocusRequester),
             keyboardOptions = KeyboardOptions(
@@ -147,8 +144,10 @@ fun ExpenseForm(
             )
             )
             OutlinedTextField(
-            value = yearState.toString(),
-            onValueChange = { yearState = it.toInt() },
+            value = viewModel.yearState.value,
+            onValueChange = {
+                viewModel.yearState.value = it
+            },
             label = { Text("Amount") },
             modifier = Modifier.weight(1f).focusRequester(lastNameFocusRequester),
             keyboardOptions = KeyboardOptions(
@@ -213,18 +212,10 @@ fun ExpenseForm(
         // Submit button
         Button(
             onClick = {
-                if (name.isNotBlank() && amount.isNotBlank()) {
-
                         viewModel.addExpense(
-                            title = name,
-                            amount = amount.toInt() ,
                             tags = selectedTags,
-                            day = dayState,
-                            month = monthState,
-                            year = yearState
                         )
                         navController.navigate("home")
-                }
             },
             modifier = Modifier.fillMaxWidth()
         ) {

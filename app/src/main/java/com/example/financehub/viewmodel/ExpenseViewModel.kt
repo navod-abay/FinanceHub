@@ -1,13 +1,13 @@
 package com.example.financehub.viewmodel
 
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.financehub.data.database.Expense
 import com.example.financehub.data.database.Tags
 import com.example.financehub.data.repository.ExpenseRepository
 import kotlinx.coroutines.launch
-import java.util.Date
-import com.example.financehub.util.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -15,20 +15,32 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
+import java.util.Date
 
 
 class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() {
+    private val _query = MutableStateFlow("")
+    var name : MutableState<String> = mutableStateOf("")
+    var amount : MutableState<String> = mutableStateOf("")
 
-    private val _monthlyTotal = MutableStateFlow(0)
+    val date = Date() // Current date
+    val dateTuple = com.example.financehub.util.getDateComponents(date)
+    var dayState: MutableState<String> = mutableStateOf(dateTuple.first.toString())
+    var monthState: MutableState<String> = mutableStateOf(dateTuple.second.toString())
+    var yearState: MutableState<String> = mutableStateOf(dateTuple.third.toString())
 
-    fun addExpense(title: String, amount: Int, tags: Set<String>, day: Int, month:Int, year:Int ) {
+
+
+    fun addExpense(tags: Set<String> ) {
         viewModelScope.launch {
-
-            repository.insertExpense(Expense(title = title, amount = amount, date = day, month = month, year = year), tags = tags)
+            if (name.value.isBlank() || amount.value.isBlank()) return@launch
+            val day: Int = if(dayState.value.isBlank())  dateTuple.first else dayState.value.toInt()
+            val month: Int = if(monthState.value.isBlank())  dateTuple.second else monthState.value.toInt()
+            val year: Int = if(yearState.value.isBlank())  dateTuple.third else yearState.value.toInt()
+            repository.insertExpense(Expense(title = name.value, amount = amount.value.toInt(), date = day, month = month, year = year), tags = tags)
         }
     }
 
-    private val _query = MutableStateFlow("")
     val matchingTags: StateFlow<List<Tags>> = _query
         .debounce(300) // Wait for user to stop typing
         .flatMapLatest { query ->

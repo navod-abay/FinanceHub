@@ -31,6 +31,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Transactions(navController: NavController, viewModel: TransactionsViewModel) {
     Scaffold (
@@ -59,7 +60,10 @@ fun Transactions(navController: NavController, viewModel: TransactionsViewModel)
                 }
             }
         }
-            Text("Transactions")
+            TopAppBar(
+                modifier = Modifier.fillMaxWidth(),
+                title = { Text("Transaction History") }
+            )
             SearchWithDateFilter(searchQuery = searchQuery, onSearchQueryChange = { searchQuery = it }, selectedDate = selectedDate, onDateSelected = {selectedDate = it })
             TransactionsList(navController, viewModel, filteredTransactionsFlow.collectAsLazyPagingItems())
     }
@@ -68,11 +72,6 @@ fun Transactions(navController: NavController, viewModel: TransactionsViewModel)
 }
 
 
-@Preview
-@Composable
-fun TransactionsPreview() {
-    // Transactions(navController = rememberNavController())
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,9 +79,7 @@ fun TransactionsList(navController: NavController, viewModel: TransactionsViewMo
 
 
     Column {
-        TopAppBar(
-            title = { Text("Transaction History") }
-        )
+
 
         LazyColumn {
             items(

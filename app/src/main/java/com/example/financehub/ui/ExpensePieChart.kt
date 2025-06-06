@@ -121,13 +121,13 @@ fun ExpensePieChart(
             }
 
             // Legend
-            LazyColumn(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(pieData) { (tag, amount, color) ->
+                pieData.forEach { (tag, amount, color) ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
