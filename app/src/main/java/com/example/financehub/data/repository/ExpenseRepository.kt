@@ -8,12 +8,17 @@ import androidx.room.Transaction
 import com.example.financehub.data.dao.ExpenseDao
 import com.example.financehub.data.dao.ExpenseTagsCrossRefDao
 import com.example.financehub.data.dao.TagsDao
+import com.example.financehub.data.dao.TargetDao
 import com.example.financehub.data.database.Expense
 import com.example.financehub.data.database.ExpenseTagsCrossRef
 import com.example.financehub.data.database.ExpenseWithTags
 import com.example.financehub.data.database.TagWithAmount
 import com.example.financehub.data.database.Tags
+import com.example.financehub.data.database.Target
+import com.example.financehub.viewmodel.TargetWithTag
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import java.util.Calendar
@@ -27,6 +32,7 @@ class ExpenseRepository(
     private val expenseDao: ExpenseDao,
     private val tagDao: TagsDao,
     private val expenseTagsCrossRefDao: ExpenseTagsCrossRefDao,
+    private val targetDao: TargetDao,
 ) {
     @Transaction
     suspend fun insertExpense(expense: Expense, tags: Set<String>) {
@@ -365,6 +371,42 @@ class ExpenseRepository(
      */
     enum class TimeAggregation {
         DAILY, WEEKLY, MONTHLY
+    }
+
+    // Add a new target to the database (stub, to be implemented)
+    suspend fun addTarget(month: Int, year: Int, tag: Tags, amount: Int) {
+        val tagID = tag.tagID
+        val target = Target(
+            month = month,
+            year = year,
+            tagID = tagID,
+            amount = amount,
+            spent = 0
+        )
+        targetDao.insertTarget(target)
+    }
+
+    fun getAllTargetsWithTagsFromCurrentMonth(): Flow<List<TargetWithTag>> {
+        return flow {
+            val calendar = Calendar.getInstance()
+            val currentMonth = calendar.get(Calendar.MONTH) + 1 // Calendar.MONTH is 0-based
+            val currentYear = calendar.get(Calendar.YEAR)
+            val allTags = tagDao.getAllTags().first()
+            val allTargets = targetDao.getAllTargetsFromCurrentMonth(currentMonth, currentYear)
+            val targetsWithTags = allTargets.mapNotNull { target ->
+                val tag = allTags.find { it.tagID == target.tagID }
+                if (tag != null) TargetWithTag(tag, target) else null
+            }
+            emit(targetsWithTags)
+        }
+    }
+
+    suspend fun deleteTarget(target: Target) {
+        targetDao.deleteTarget(target.month, target.year, target.tagID)
+    }
+
+    suspend fun updateTargetAmount(target: Target, newAmount: Int) {
+        targetDao.updateTargetAmount(target.month, target.year, target.tagID, newAmount)
     }
 
 }

@@ -24,20 +24,35 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import com.example.financehub.ui.TargetForm
 
 
 @Composable
 fun AddExpense(navController: NavController, viewModel: ExpenseViewModel) {
+    var selectedTab by remember { mutableStateOf(0) }
+    val tabTitles = listOf("Add Expense", "Add Target")
     Scaffold (
         bottomBar = { NavBar(navController) },
-    ) {
-        _ ->
+    ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
         ) {
-           ExpenseForm(viewModel, navController)
+            TabRow(selectedTabIndex = selectedTab) {
+                tabTitles.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        text = { Text(title) }
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            when (selectedTab) {
+                0 -> ExpenseForm(viewModel, navController)
+                1 -> TargetForm(viewModel, navController)
+            }
         }
     }
 }

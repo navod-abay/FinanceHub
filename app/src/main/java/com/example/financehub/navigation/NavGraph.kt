@@ -19,17 +19,19 @@ import com.example.financehub.viewmodel.ExpenseViewModel
 import com.example.financehub.viewmodel.HomeScreenViewModel
 import com.example.financehub.viewmodel.TagsViewModel
 import com.example.financehub.viewmodel.TransactionsViewModel
+import com.example.financehub.viewmodel.TargetsViewModel
 
 @Composable
 fun NavGraph(navController: NavHostController) {
     val applicationContext = LocalContext.current.applicationContext
     val database by lazy { AppDatabase.getDatabase(applicationContext) }
-    val repository by lazy { ExpenseRepository(database.expenseDao(), database.tagsDao(), database.expenseTagsCrossRefDao()) }
+    val repository by lazy { ExpenseRepository(database.expenseDao(), database.tagsDao(), database.expenseTagsCrossRefDao(), database.targetDao()) }
     val expenseViewModel by lazy { ExpenseViewModel(repository) }
     val homeScreenViewModel by lazy { HomeScreenViewModel(repository) }
     val transactionsViewModel by lazy { TransactionsViewModel(repository) }
     val analyticsViewModel by lazy { AnalyticsViewModel(repository) }
     val tagsViewModel by lazy { TagsViewModel(repository) }
+    val targetViewModel by lazy { TargetsViewModel(repository) }
 
     NavHost(
         navController = navController,
@@ -45,7 +47,7 @@ fun NavGraph(navController: NavHostController) {
             Transactions(navController = navController, viewModel = transactionsViewModel)
         }
         composable(route = "tags") {
-            TagsScreen(navController = navController, viewModel = tagsViewModel)
+            TagsScreen(navController = navController, viewModel = tagsViewModel, targetsViewModel = targetViewModel)
         }
         composable(route = Screens.EditExpense.route) {
             EditExpenseScreen(navController = navController, viewModel = transactionsViewModel)

@@ -29,6 +29,9 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
     var monthState: MutableState<String> = mutableStateOf(dateTuple.second.toString())
     var yearState: MutableState<String> = mutableStateOf(dateTuple.third.toString())
 
+    // Shared states for both Expense and Target forms
+    var selectedTag: MutableState<Tags?> = mutableStateOf(null)
+    var targetAmount: MutableState<String> = mutableStateOf("")
 
 
     fun addExpense(tags: Set<String> ) {
@@ -50,6 +53,39 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
 
     fun updateQuery(newQuery: String) {
         _query.value = newQuery
+    }
+
+    var targetError: MutableState<String?> = mutableStateOf(null)
+
+    fun addTarget() {
+        val month = monthState.value
+        val year = yearState.value
+        val tag = selectedTag.value
+        val amount = targetAmount.value
+        val currentYear = dateTuple.third
+        val currentMonth = dateTuple.second
+
+        // Validation
+        if (month.isBlank() || year.isBlank() || tag == null || amount.isBlank()) {
+            targetError.value = "All fields are required."
+            return
+        }
+        val monthInt = month.toIntOrNull()
+        val yearInt = year.toIntOrNull()
+        val amountInt = amount.toIntOrNull()
+        if (monthInt == null || yearInt == null || amountInt == null) {
+            targetError.value = "Month, year, and amount must be numbers."
+            return
+        }
+        if (yearInt < currentYear || (yearInt == currentYear && monthInt <= currentMonth)) {
+            targetError.value = "Target month/year must be in the future."
+            return
+        }
+        // Use the selectedTag directly
+        viewModelScope.launch {
+            targetError.value = null
+            repository.addTarget(monthInt, yearInt, tag, amountInt)
+        }
     }
 
 }
