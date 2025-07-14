@@ -18,4 +18,7 @@ interface ExpenseTagsCrossRefDao {
 
     @Delete
     suspend fun deleteExpenseTagsCrossRef(ref: ExpenseTagsCrossRef)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(parents: List<ExpenseTagsCrossRef>)
 }
