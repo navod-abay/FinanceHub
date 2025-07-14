@@ -51,6 +51,8 @@ interface ExpenseDao {
         endYear: Int, endMonth: Int, endDay: Int
     ): Flow<List<ExpenseWithTags>>
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(parents: List<Expense>)
 
 
 }

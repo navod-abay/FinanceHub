@@ -41,6 +41,7 @@ interface TagsDao {
     @Update
     suspend fun updateTag(tag: Tags)
 
-
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(parents: List<Tags>)
 
 }
