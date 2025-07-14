@@ -277,10 +277,12 @@ class ExpenseRepository(
                     val currentAmount = tagAmountMap["Untagged"] ?: 0
                     tagAmountMap["Untagged"] = currentAmount + amount
                 } else {
-                    // Add the amount to each tag's total
+                    // Add the amount to each tag's total, but ignore tags in tagNames
                     expenseWithTags.tags.forEach { tag ->
-                        val currentAmount = tagAmountMap[tag.tag] ?: 0
-                        tagAmountMap[tag.tag] = currentAmount + amount
+                        if (!tagNames.contains(tag.tag)) {
+                            val currentAmount = tagAmountMap[tag.tag] ?: 0
+                            tagAmountMap[tag.tag] = currentAmount + amount
+                        }
                     }
                 }
             }

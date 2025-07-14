@@ -1,5 +1,6 @@
 package com.example.financehub.ui
 
+import ExpenseTimeChart
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -119,6 +120,10 @@ fun ExpenseAnalyticsScreen(
                 item {
                     ExpensePieChart(
                         tagAmounts = expensesByTag,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                    ExpenseTimeChart(
+                        timeData = viewModel.timeSeriesData.collectAsState().value,
                         modifier = Modifier.padding(vertical = 8.dp)
                     )
                 }
@@ -318,50 +323,31 @@ fun DateFilterDialog(
     onDismiss: () -> Unit
 ) {
     var showCustomDatePicker by remember { mutableStateOf(false) }
-    var tempStartDate by remember { mutableStateOf(LocalDate.now().withDayOfMonth(1)) }
-    var tempEndDate by remember { mutableStateOf(LocalDate.now()) }
-    var selectingStartDate by remember { mutableStateOf(true) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Select Date Range") },
-        text = {
-            Column {
-                if (showCustomDatePicker) {
-                    // Custom date selection UI
-                    Text("Select ${if (selectingStartDate) "Start" else "End"} Date")
-                    // Here you would add a DatePicker composable
-                    // Since Jetpack Compose doesn't have a built-in date picker yet,
-                    // you would need to use a third-party library or create your own
-
-                    // For this example, we'll use a placeholder
-                    Text(
-                        "Start: ${tempStartDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))}",
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                    Text(
-                        "End: ${tempEndDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))}",
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Button(
-                            onClick = { selectingStartDate = true },
-                            enabled = !selectingStartDate
-                        ) {
-                            Text("Edit Start")
-                        }
-                        Button(
-                            onClick = { selectingStartDate = false },
-                            enabled = selectingStartDate
-                        ) {
-                            Text("Edit End")
-                        }
-                    }
-                } else {
+    if (showCustomDatePicker) {
+        DateRangePickerModal(
+            onDateRangeSelected = { range ->
+                val start = range.first?.let {
+                    java.time.Instant.ofEpochMilli(it)
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .toLocalDate()
+                } ?: LocalDate.now().withDayOfMonth(1)
+                val end = range.second?.let {
+                    java.time.Instant.ofEpochMilli(it)
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .toLocalDate()
+                } ?: LocalDate.now()
+                onCustomDateSelected(start, end)
+                showCustomDatePicker = false
+            },
+            onDismiss = { showCustomDatePicker = false }
+        )
+    } else {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("Select Date Range") },
+            text = {
+                Column {
                     // Date range presets
                     PresetOption(
                         "Current Month",
@@ -399,33 +385,14 @@ fun DateFilterDialog(
                         onClick = { showCustomDatePicker = true }
                     )
                 }
-            }
-        },
-        confirmButton = {
-            if (showCustomDatePicker) {
-                Button(
-                    onClick = {
-                        onCustomDateSelected(tempStartDate, tempEndDate)
-                    }
-                ) {
-                    Text("Apply")
-                }
-            } else {
+            },
+            confirmButton = {
                 Button(onClick = onDismiss) {
                     Text("Close")
                 }
             }
-        },
-        dismissButton = {
-            if (showCustomDatePicker) {
-                TextButton(
-                    onClick = { showCustomDatePicker = false }
-                ) {
-                    Text("Back")
-                }
-            }
-        }
-    )
+        )
+    }
 }
 
 @Composable
@@ -511,4 +478,51 @@ fun TagFilterDialog(
             }
         }
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DateRangePickerModal(
+    onDateRangeSelected: (Pair<Long?, Long?>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val dateRangePickerState = rememberDateRangePickerState()
+
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onDateRangeSelected(
+                        Pair(
+                            dateRangePickerState.selectedStartDateMillis,
+                            dateRangePickerState.selectedEndDateMillis
+                        )
+                    )
+                    onDismiss()
+                }
+            ) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    ) {
+        DateRangePicker(
+            state = dateRangePickerState,
+            title = {
+                Text(
+                    text = "Select date range"
+                )
+            },
+            showModeToggle = false,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(500.dp)
+                .padding(16.dp)
+        )
+    }
 }
