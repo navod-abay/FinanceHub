@@ -9,6 +9,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import java.util.Calendar
 
@@ -24,14 +26,23 @@ class HomeScreenViewModel(
     private val _monthlyTotal = MutableStateFlow<Int>(0)
     val monthlyTotal: StateFlow<Int> = _monthlyTotal
 
+    private val _missedTargets = MutableStateFlow(0)
+    val missedTargets: StateFlow<Int> = _missedTargets
+    private val _totalTargets = MutableStateFlow(0)
+    val totalTargets: StateFlow<Int> = _totalTargets
+
+    val missedFraction: StateFlow<Float> = combine(_missedTargets, _totalTargets) { missed, total ->
+        if (total == 0) 0f else missed.toFloat() / total.toFloat()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0f)
+
     init {
         val calendar = Calendar.getInstance()
         val currentYear = calendar.get(Calendar.YEAR)
-        val currentMonth = calendar.get(Calendar.MONTH) + 1
+        val currentMonth = calendar.get(Calendar.MONTH)
 
         viewModelScope.launch {
             combine(
-                repository.getCurrentMonthTotal(currentMonth, currentYear),
+                repository.getCurrentMonthTotal(currentMonth + 1, currentYear),
                 repository.getTopTagForMonth(currentMonth, currentYear)
             ) { total, topTag ->
                 Pair(total, topTag)
@@ -39,6 +50,12 @@ class HomeScreenViewModel(
                 _monthlyTotal.value = total
                 _highestTag.value = TagWithAmount(topTag.tag, 0)
             }.collect {}
+        }
+        viewModelScope.launch {
+            repository.getMonthlyTargetsStats().collect { (missed, total) ->
+                _missedTargets.value = missed
+                _totalTargets.value = total
+            }
         }
     }
 }

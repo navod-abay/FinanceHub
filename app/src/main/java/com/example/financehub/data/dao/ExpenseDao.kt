@@ -54,5 +54,7 @@ interface ExpenseDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(parents: List<Expense>)
 
+    @Query("SELECT COALESCE(SUM(e.amount),0) FROM expenses e INNER JOIN expense_tags et ON e.expenseID = et.expenseID WHERE et.tagID = :tagId AND e.month = :month AND e.year = :year")
+    suspend fun getSumForTagMonthYear(tagId: Int, month: Int, year: Int): Int
 
 }

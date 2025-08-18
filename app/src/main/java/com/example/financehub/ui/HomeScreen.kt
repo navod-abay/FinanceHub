@@ -95,35 +95,45 @@ fun Greeting(navController: NavController) {
 @Composable
 fun SnapshotGrid(navController: NavController, viewModel: HomeScreenViewModel) {
     val highestTag = viewModel.highestTag.collectAsState()
+    val missed by viewModel.missedTargets.collectAsState()
+    val total by viewModel.totalTargets.collectAsState()
+
+    val missedDisplay = "$missed / $total"
+    val missedSubtitle = when {
+        total == 0 -> "No targets set"
+        missed == 0 -> "All on track"
+        else -> String.format("%d%% missed", ((missed.toFloat() / total.toFloat()) * 100).toInt())
+    }
+
     val cardData = listOf(
-        "Most spent tag" to highestTag.value.tag,
-        "Title 3" to "$200.00",
-        "Title 4" to "$100.00",
-        "Title 1" to "$120.00",
+        Triple("Most spent tag", highestTag.value.tag, ""),
+        Triple("Missed Targets", missedDisplay, missedSubtitle)
     )
 
     LazyVerticalGrid(
-        columns = GridCells.Fixed(2), // 2 columns
+        columns = GridCells.Fixed(2),
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(cardData) { (title, amount) ->
+        items(cardData) { (title, primary, subtitle) ->
             Card(
-                modifier = Modifier
-                    .fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(text = title, style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = amount, style = MaterialTheme.typography.bodyMedium)
+                    Text(text = primary, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    if (subtitle.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(text = subtitle, style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
         }
-        
     }
 }
 
@@ -148,4 +158,3 @@ fun TotalExpenditure(navController: NavController, viewModel: HomeScreenViewMode
         }
     }
 }
-

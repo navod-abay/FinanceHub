@@ -226,10 +226,28 @@ fun TargetCard(
 ) {
     var isEditing by remember { mutableStateOf(false) }
     var editAmount by remember { mutableStateOf(item.target.amount.toString()) }
+
+    // Determine highlight state
+    val calendar = java.util.Calendar.getInstance()
+    val currentMonth = calendar.get(java.util.Calendar.MONTH) + 1 // Calendar.MONTH is 0-based
+    val currentYear = calendar.get(java.util.Calendar.YEAR)
+
+    val isPast = item.target.year < currentYear || (item.target.year == currentYear && item.target.month < currentMonth)
+    val isCurrent = item.target.year == currentYear && item.target.month == currentMonth
+
+    // Decide color: priority -> overspent (red) > past (green) > current & within target (yellow)
+    val highlightColor: Color? = when {
+        item.target.spent > item.target.amount -> Color(0xFFFFCDD2) // light red
+        isPast -> Color(0xFFC8E6C9) // light green
+        isCurrent && item.target.spent <= item.target.amount -> Color(0xFFFFF9C4) // light yellow
+        else -> null
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = highlightColor?.let { CardDefaults.cardColors(containerColor = it) } ?: CardDefaults.cardColors()
     ) {
         Column(
             modifier = Modifier.padding(16.dp)

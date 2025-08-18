@@ -77,11 +77,11 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
             targetError.value = "Month, year, and amount must be numbers."
             return
         }
-        if (yearInt < currentYear || (yearInt == currentYear && monthInt <= currentMonth)) {
-            targetError.value = "Target month/year must be in the future."
+        // Only disallow past months; allow current month now
+        if (yearInt < currentYear || (yearInt == currentYear && monthInt < currentMonth)) {
+            targetError.value = "Target month/year must not be in the past."
             return
         }
-        // Use the selectedTag directly
         viewModelScope.launch {
             targetError.value = null
             repository.addTarget(monthInt, yearInt, tag, amountInt)

@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.example.financehub.data.database.Target
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TargetDao {
@@ -31,4 +32,13 @@ interface TargetDao {
 
     @Query("UPDATE targets SET spent = :newSpent WHERE month = :month AND year = :year AND tagID = :tagID")
     suspend fun updateTargetSpent(month: Int, year: Int, tagID: Int, newSpent: Int)
+
+    @Query("UPDATE targets SET spent = spent + :amount WHERE month = :month AND year = :year AND tagID = :tagID")
+    suspend fun incrementSpentAmount(month: Int, year: Int, tagID: Int, amount: Int)
+
+    @Query("SELECT COUNT(*) FROM targets WHERE month = :month AND year = :year AND spent > amount")
+    fun getMissedTargetsCount(month: Int, year: Int): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM targets WHERE month = :month AND year = :year")
+    fun getTotalTargetsCount(month: Int, year: Int): Flow<Int>
 }

@@ -17,6 +17,7 @@ import com.example.financehub.data.database.Tags
 import com.example.financehub.data.database.Target
 import com.example.financehub.viewmodel.TargetWithTag
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -38,9 +39,8 @@ class ExpenseRepository(
     suspend fun insertExpense(expense: Expense, tags: Set<String>) {
         val expenseID = expenseDao.insertExpense(expense).toInt()
         tags.forEach { tag ->
-           addTagforExpense(expenseID, expense.amount, tag)
+            addTagforExpense(expenseID, expense, tag)
         }
-
     }
 
     fun getPagedExpenses(): Flow<PagingData<Expense>> {
@@ -107,7 +107,7 @@ class ExpenseRepository(
             removeTagFromExpense(expense.expenseID, expense.amount, tagText)
         }
         addedTags.forEach { tagText ->
-            addTagforExpense(expense.expenseID, expense.amount, tagText)
+            addTagforExpense(expense.expenseID, expense, tagText)
         }
     }
 
@@ -119,27 +119,27 @@ class ExpenseRepository(
         }
     }
 
-    private suspend fun addTagforExpense(expenseID: Int, amount: Int, tag: String) {
+    private suspend fun addTagforExpense(expenseID: Int, expense: Expense, tag: String) {
 
             var tagID = tagDao.getTagIDbyTag(tag)
-            val calendar = Calendar.getInstance()
-            val currentMonth = calendar.get(Calendar.MONTH) // Calendar months are 0-based
-            val currentYear = calendar.get(Calendar.YEAR)
             if (tagID == null) {
-                val currentDay = calendar.get(Calendar.DAY_OF_MONTH)
                 tagID = tagDao.insertTag(
                     Tags(
                         tag = tag,
-                        monthlyAmount = amount,
-                        currentMonth = currentMonth,
-                        currentYear = currentYear,
-                        createdDay = currentDay,
-                        createdMonth = currentMonth,
-                        createdYear = currentYear
+                        monthlyAmount = expense.amount,
+                        currentMonth = expense.month,
+                        currentYear = expense.year,
+                        createdDay = expense.date,
+                        createdMonth = expense.month,
+                        createdYear = expense.year
                     )
                 ).toInt()
             } else {
-                tagDao.incrementAmount(tagID, amount, currentMonth, currentYear)
+                tagDao.incrementAmount(tagID, expense.amount, expense.month, expense.year)
+                targetDao.getTarget(expense.month, expense.year, tagID)?.let { target ->
+                    // If a target exists for this tag, increment the spent amount
+                    targetDao.incrementSpentAmount(expense.month, expense.year, tagID, expense.amount)
+                }
             }
             expenseTagsCrossRefDao.insertExpenseTagsCrossRef(
                 ExpenseTagsCrossRef(
@@ -378,12 +378,14 @@ class ExpenseRepository(
     // Add a new target to the database (stub, to be implemented)
     suspend fun addTarget(month: Int, year: Int, tag: Tags, amount: Int) {
         val tagID = tag.tagID
+        // Sum existing expenses for this tag in given month/year to initialize spent
+        val existingSpent = expenseDao.getSumForTagMonthYear(tagID, month, year)
         val target = Target(
             month = month,
             year = year,
             tagID = tagID,
             amount = amount,
-            spent = 0
+            spent = existingSpent
         )
         targetDao.insertTarget(target)
     }
@@ -403,7 +405,16 @@ class ExpenseRepository(
         }
     }
 
-        
+    fun getMonthlyTargetsStats(): Flow<Pair<Int, Int>> {
+        val calendar = Calendar.getInstance()
+        val month = calendar.get(Calendar.MONTH) + 1
+        val year = calendar.get(Calendar.YEAR)
+        return combine(
+            targetDao.getMissedTargetsCount(month, year),
+            targetDao.getTotalTargetsCount(month, year)
+        ) { missed, total -> missed to total }
+    }
+
 
     suspend fun deleteTarget(target: Target) {
         targetDao.deleteTarget(target.month, target.year, target.tagID)
