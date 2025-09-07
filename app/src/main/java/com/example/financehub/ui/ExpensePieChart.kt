@@ -2,12 +2,15 @@ package com.example.financehub.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -30,6 +33,9 @@ fun ExpensePieChart(
     modifier: Modifier = Modifier
 ) {
     if (tagAmounts.isEmpty()) return
+
+    var showAllTags by remember { mutableStateOf(false) }
+
 
     // Calculate total amount
     val totalAmount = tagAmounts.values.sum()
@@ -120,40 +126,59 @@ fun ExpensePieChart(
                 }
             }
 
-            // Legend
+            // Legend (non-scrollable Column to avoid nested scroll issues)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                pieData.forEach { (tag, amount, color) ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(16.dp)
-                                .padding(end = 8.dp)
-                        ) {
-                            Canvas(modifier = Modifier.fillMaxSize()) {
-                                drawRect(color = color)
-                            }
-                        }
-
-                        Text(
-                            text = tag,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        Text(
-                            text = String.format("%.1f%%", (amount.toFloat() / totalAmount) * 100),
-                            fontWeight = FontWeight.Bold
-                        )
+                val sortedExpensesWithTags = pieData.sortedByDescending { it.second }
+                if (showAllTags) {
+                    sortedExpensesWithTags.forEach { (tag, amount, color) ->
+                        LegendRow(tag = tag, amount = amount, totalAmount = totalAmount, color = color)
+                    }
+                    TextButton(
+                        onClick = { showAllTags = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Show Less") }
+                } else {
+                    val topTags = if (sortedExpensesWithTags.size > 7) sortedExpensesWithTags.take(7) else sortedExpensesWithTags
+                    topTags.forEach { (tag, amount, color) ->
+                        LegendRow(tag = tag, amount = amount, totalAmount = totalAmount, color = color)
+                    }
+                    if (sortedExpensesWithTags.size > topTags.size) {
+                        TextButton(
+                            onClick = { showAllTags = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Show More") }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun LegendRow(tag: String, amount: Int, totalAmount: Int, color: Color) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(16.dp)
+                .padding(end = 8.dp)
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) { drawRect(color = color) }
+        }
+        Text(
+            text = tag,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = String.format("%.1f%%", (amount.toFloat() / totalAmount) * 100),
+            fontWeight = FontWeight.Bold
+        )
     }
 }

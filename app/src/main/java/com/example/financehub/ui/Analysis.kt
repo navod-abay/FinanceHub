@@ -42,6 +42,7 @@ fun ExpenseAnalyticsScreen(
 
     // State for showing filter dialog
     var showDateFilterDialog by remember { mutableStateOf(false) }
+    var showAllTags by remember { mutableStateOf(false) }
     var showTagFilterDialog by remember { mutableStateOf(false) }
 
     // Format numbers for display
@@ -105,13 +106,40 @@ fun ExpenseAnalyticsScreen(
                         modifier = Modifier.padding(vertical = 8.dp)
                     )
                 }
-
-                items(expensesByTag.entries.sortedByDescending { it.value }) { (tag, amount) ->
-                    TagExpenseItem(
-                        tagName = tag,
-                        amount = currencyFormatter.format(amount / 100.0),
-                        percentage = if (totalAmount > 0) (amount.toFloat() / totalAmount) * 100 else 0f
-                    )
+                val sortedExpensesWithTags = expensesByTag.entries.sortedByDescending { it.value }
+                if (showAllTags) {
+                    items(sortedExpensesWithTags) { (tag, amount) ->
+                        TagExpenseItem(
+                            tagName = tag,
+                            amount = currencyFormatter.format(amount),
+                            percentage = if (totalAmount > 0) (amount.toFloat() / totalAmount) * 100 else 0f
+                        )
+                    }
+                    item {
+                        TextButton(
+                            onClick = { showAllTags = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Show Less")
+                        }
+                    }
+                } else {
+                    val topTags = if (sortedExpensesWithTags.size > 7) sortedExpensesWithTags.take(7) else sortedExpensesWithTags
+                    items(topTags) { (tag, amount) ->
+                        TagExpenseItem(
+                            tagName = tag,
+                            amount = currencyFormatter.format(amount),
+                            percentage = if (totalAmount > 0) (amount.toFloat() / totalAmount) * 100 else 0f
+                        )
+                    }
+                    item {
+                        TextButton(
+                            onClick = { showAllTags = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Show More")
+                        }
+                    }
                 }
             }
 

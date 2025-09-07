@@ -57,4 +57,25 @@ interface ExpenseDao {
     @Query("SELECT COALESCE(SUM(e.amount),0) FROM expenses e INNER JOIN expense_tags et ON e.expenseID = et.expenseID WHERE et.tagID = :tagId AND e.month = :month AND e.year = :year")
     suspend fun getSumForTagMonthYear(tagId: Int, month: Int, year: Int): Int
 
+    @Transaction
+    @Query("""
+SELECT * FROM expenses e
+WHERE (:startYear IS NULL OR (e.year > :startYear OR (e.year = :startYear AND (e.month > :startMonth OR (e.month = :startMonth AND e.date >= :startDay)))))
+AND (:endYear IS NULL OR (e.year < :endYear OR (e.year = :endYear AND (e.month < :endMonth OR (e.month = :endMonth AND e.date <= :endDay)))))
+AND (
+    :requiredCount = 0 OR e.expenseID IN (
+        SELECT expenseID FROM expense_tags
+        WHERE tagID IN (:requiredTagIds)
+        GROUP BY expenseID
+        HAVING COUNT(DISTINCT tagID) = :requiredCount
+    )
+)
+ORDER BY year DESC, month DESC, date DESC
+""")
+    fun getPagedExpensesFiltered(
+        startYear: Int?, startMonth: Int?, startDay: Int?,
+        endYear: Int?, endMonth: Int?, endDay: Int?,
+        requiredTagIds: List<Int>,
+        requiredCount: Int
+    ): PagingSource<Int, ExpenseWithTags>
 }

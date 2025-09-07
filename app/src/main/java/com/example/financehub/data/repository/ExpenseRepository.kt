@@ -16,6 +16,7 @@ import com.example.financehub.data.database.TagWithAmount
 import com.example.financehub.data.database.Tags
 import com.example.financehub.data.database.Target
 import com.example.financehub.viewmodel.TargetWithTag
+import com.example.financehub.viewmodel.FilterParams
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
@@ -424,4 +425,22 @@ class ExpenseRepository(
         targetDao.updateTargetAmount(target.month, target.year, target.tagID, newAmount)
     }
 
+    fun getPagedFilteredExpenses(params: FilterParams): Flow<PagingData<ExpenseWithTags>> {
+        val range = params.resolveDateRange()
+        val tagIds = if (params.requiredTagIds.isEmpty()) listOf(-1) else params.requiredTagIds.map { it }
+        return Pager(
+            config = PagingConfig(
+                pageSize = 20,
+                enablePlaceholders = false,
+                prefetchDistance = 5
+            )
+        ) {
+            expenseDao.getPagedExpensesFiltered(
+                range.startYear, range.startMonth, range.startDay,
+                range.endYear, range.endMonth, range.endDay,
+                tagIds,
+                params.requiredTagIds.size
+            )
+        }.flow
+    }
 }
