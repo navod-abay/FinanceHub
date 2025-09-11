@@ -7,16 +7,18 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.financehub.data.dao.ExpenseDao
 import com.example.financehub.data.dao.ExpenseTagsCrossRefDao
+import com.example.financehub.data.dao.GraphEdgeDAO
 import com.example.financehub.data.dao.TagsDao
 import com.example.financehub.data.dao.TargetDao
 
 
-@Database(entities = [Expense::class, Tags::class, ExpenseTagsCrossRef::class, Target::class], version = 7)
+@Database(entities = [Expense::class, Tags::class, ExpenseTagsCrossRef::class, Target::class], version = 8)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao
     abstract fun tagsDao(): TagsDao
     abstract fun expenseTagsCrossRefDao(): ExpenseTagsCrossRefDao
     abstract fun targetDao(): TargetDao
+    abstract fun graphEdgeDAO(): GraphEdgeDAO
 
     companion object {
         @Volatile

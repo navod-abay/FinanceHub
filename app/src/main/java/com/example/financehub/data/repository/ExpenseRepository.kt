@@ -7,11 +7,13 @@ import androidx.paging.PagingData
 import androidx.room.Transaction
 import com.example.financehub.data.dao.ExpenseDao
 import com.example.financehub.data.dao.ExpenseTagsCrossRefDao
+import com.example.financehub.data.dao.GraphEdgeDAO
 import com.example.financehub.data.dao.TagsDao
 import com.example.financehub.data.dao.TargetDao
 import com.example.financehub.data.database.Expense
 import com.example.financehub.data.database.ExpenseTagsCrossRef
 import com.example.financehub.data.database.ExpenseWithTags
+import com.example.financehub.data.database.GraphEdge
 import com.example.financehub.data.database.TagWithAmount
 import com.example.financehub.data.database.Tags
 import com.example.financehub.data.database.Target
@@ -35,6 +37,7 @@ class ExpenseRepository(
     private val tagDao: TagsDao,
     private val expenseTagsCrossRefDao: ExpenseTagsCrossRefDao,
     private val targetDao: TargetDao,
+    private val edgeDAO: GraphEdgeDAO
 ) {
     @Transaction
     suspend fun insertExpense(expense: Expense, tags: Set<String>) {
@@ -442,5 +445,9 @@ class ExpenseRepository(
                 params.requiredTagIds.size
             )
         }.flow
+    }
+
+    fun getAllGraphEdges(): Flow<List<GraphEdge>> {
+        return graphEdgeDAO.getAllGraphEdges()
     }
 }
