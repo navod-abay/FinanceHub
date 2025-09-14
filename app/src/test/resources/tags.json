@@ -1,0 +1,362 @@
+[
+    {
+        "createdDay": 1,
+        "createdMonth": 6,
+        "createdYear": 2025,
+        "currentMonth": 8,
+        "currentYear": 2025,
+        "monthlyAmount": 450,
+        "tag": "AIESEC",
+        "tagID": 1
+    },
+    {
+        "createdDay": 1,
+        "createdMonth": 6,
+        "createdYear": 2025,
+        "currentMonth": 9,
+        "currentYear": 2025,
+        "monthlyAmount": 32175,
+        "tag": "Food",
+        "tagID": 2
+    },
+    {
+        "createdDay": 1,
+        "createdMonth": 6,
+        "createdYear": 2025,
+        "currentMonth": 9,
+        "currentYear": 2025,
+        "monthlyAmount": 15245,
+        "tag": "Meal",
+        "tagID": 3
+    },
+    {
+        "createdDay": 1,
+        "createdMonth": 6,
+        "createdYear": 2025,
+        "currentMonth": 8,
+        "currentYear": 2025,
+        "monthlyAmount": 29270,
+        "tag": "To be reimbursed",
+        "tagID": 4
+    },
+    {
+        "createdDay": 1,
+        "createdMonth": 6,
+        "createdYear": 2025,
+        "currentMonth": 9,
+        "currentYear": 2025,
+        "monthlyAmount": 6240,
+        "tag": "Snacks",
+        "tagID": 5
+    },
+    {
+        "createdDay": 1,
+        "createdMonth": 6,
+        "createdYear": 2025,
+        "currentMonth": 9,
+        "currentYear": 2025,
+        "monthlyAmount": 22916,
+        "tag": "Transport",
+        "tagID": 6
+    },
+    {
+        "createdDay": 5,
+        "createdMonth": 6,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 17186,
+        "tag": "Pickme/Uber",
+        "tagID": 7
+    },
+    {
+        "createdDay": 5,
+        "createdMonth": 6,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 16160,
+        "tag": "Ramisha",
+        "tagID": 8
+    },
+    {
+        "createdDay": 9,
+        "createdMonth": 6,
+        "createdYear": 2025,
+        "currentMonth": 6,
+        "currentYear": 2025,
+        "monthlyAmount": 3000,
+        "tag": "Gamidu",
+        "tagID": 9
+    },
+    {
+        "createdDay": 12,
+        "createdMonth": 6,
+        "createdYear": 2025,
+        "currentMonth": 9,
+        "currentYear": 2025,
+        "monthlyAmount": 6600,
+        "tag": "Mobitel",
+        "tagID": 10
+    },
+    {
+        "createdDay": 31,
+        "createdMonth": 6,
+        "createdYear": 2025,
+        "currentMonth": 6,
+        "currentYear": 2025,
+        "monthlyAmount": 2200,
+        "tag": "Unavoidable",
+        "tagID": 11
+    },
+    {
+        "createdDay": 31,
+        "createdMonth": 6,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 4510,
+        "tag": "Friends",
+        "tagID": 12
+    },
+    {
+        "createdDay": 1,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 660,
+        "tag": "Mistake",
+        "tagID": 13
+    },
+    {
+        "createdDay": 1,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 9,
+        "currentYear": 2025,
+        "monthlyAmount": 3310,
+        "tag": "Bus",
+        "tagID": 14
+    },
+    {
+        "createdDay": 2,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 1610,
+        "tag": "Avoidable",
+        "tagID": 15
+    },
+    {
+        "createdDay": 3,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 4880,
+        "tag": "Bike",
+        "tagID": 16
+    },
+    {
+        "createdDay": 5,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 9300,
+        "tag": "Bank",
+        "tagID": 17
+    },
+    {
+        "createdDay": 6,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 3100,
+        "tag": "Gift",
+        "tagID": 18
+    },
+    {
+        "createdDay": 11,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 600,
+        "tag": "Alcohol",
+        "tagID": 19
+    },
+    {
+        "createdDay": 11,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 1200,
+        "tag": "Godfrey",
+        "tagID": 20
+    },
+    {
+        "createdDay": 11,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 600,
+        "tag": "Kumarage",
+        "tagID": 21
+    },
+    {
+        "createdDay": 11,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 220,
+        "tag": "Necessity ",
+        "tagID": 22
+    },
+    {
+        "createdDay": 12,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 1950,
+        "tag": "Energy Drinks",
+        "tagID": 23
+    },
+    {
+        "createdDay": 14,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 47510,
+        "tag": "Purchase",
+        "tagID": 24
+    },
+    {
+        "createdDay": 14,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 17740,
+        "tag": "NAS",
+        "tagID": 25
+    },
+    {
+        "createdDay": 16,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 10300,
+        "tag": "Electronic",
+        "tagID": 26
+    },
+    {
+        "createdDay": 16,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 8,
+        "currentYear": 2025,
+        "monthlyAmount": 2880,
+        "tag": "Reducible",
+        "tagID": 27
+    },
+    {
+        "createdDay": 16,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 4933,
+        "tag": "To Save Time",
+        "tagID": 28
+    },
+    {
+        "createdDay": 16,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 650,
+        "tag": "Tech Triathlon",
+        "tagID": 29
+    },
+    {
+        "createdDay": 17,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 2500,
+        "tag": "Clothing",
+        "tagID": 30
+    },
+    {
+        "createdDay": 17,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 8,
+        "currentYear": 2025,
+        "monthlyAmount": 2750,
+        "tag": "Borrowed",
+        "tagID": 31
+    },
+    {
+        "createdDay": 17,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 2500,
+        "tag": "Lakindu",
+        "tagID": 32
+    },
+    {
+        "createdDay": 23,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 7,
+        "currentYear": 2025,
+        "monthlyAmount": 558,
+        "tag": "Courier",
+        "tagID": 33
+    },
+    {
+        "createdDay": 28,
+        "createdMonth": 7,
+        "createdYear": 2025,
+        "currentMonth": 8,
+        "currentYear": 2025,
+        "monthlyAmount": 3380,
+        "tag": "Payed for Others",
+        "tagID": 34
+    },
+    {
+        "createdDay": 1,
+        "createdMonth": 8,
+        "createdYear": 2025,
+        "currentMonth": 8,
+        "currentYear": 2025,
+        "monthlyAmount": 545,
+        "tag": "LDS",
+        "tagID": 35
+    },
+    {
+        "createdDay": 2,
+        "createdMonth": 8,
+        "createdYear": 2025,
+        "currentMonth": 8,
+        "currentYear": 2025,
+        "monthlyAmount": 250,
+        "tag": "Malith",
+        "tagID": 36
+    }
+]

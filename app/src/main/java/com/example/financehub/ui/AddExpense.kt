@@ -24,6 +24,7 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import com.example.financehub.data.database.Tags
 import com.example.financehub.ui.TargetForm
 
 
@@ -64,9 +65,14 @@ fun ExpenseForm(
     viewModel: ExpenseViewModel,
     navController: NavController
 ) {
-    var selectedTags by remember { mutableStateOf(setOf<String>()) }
+    var selectedTags by remember { mutableStateOf(setOf<Tags>()) }
     var showTagDialog by remember { mutableStateOf(false) }
     var newTagText by remember { mutableStateOf("") }
+
+    val newTags  = mutableListOf<String>()
+
+
+    val reccommendedTags by viewModel.reccommendedTags.collectAsState()
 
     // Predefined tags (you can modify this list)
     val suggestedTags by viewModel.matchingTags.collectAsState()
@@ -194,7 +200,7 @@ fun ExpenseForm(
                 InputChip(
                     selected = true,
                     onClick = { },
-                    label = { Text(tag) },
+                    label = { Text(tag.tag) },
                     trailingIcon = {
                         IconButton(
                             onClick = {
@@ -209,6 +215,15 @@ fun ExpenseForm(
                     }
                 )
             }
+            items(reccommendedTags.toList()) { tag ->
+                InputChip(
+                    selected = false,
+                    onClick = {},
+                    label = {Text(tag.toString())}
+                )
+            }
+
+
 
             item {
                 AssistChip(
@@ -229,6 +244,7 @@ fun ExpenseForm(
             onClick = {
                         viewModel.addExpense(
                             tags = selectedTags,
+                            newTags = newTags
                         )
                         navController.navigate("home")
             },
@@ -287,13 +303,14 @@ fun ExpenseForm(
                         suggestedTags.forEach { tag ->
                             FilterChip(
 
-                                selected = tag.tag in selectedTags,
+                                selected = tag in selectedTags,
                                 onClick = {
                                     newTagText = ""
-                                    selectedTags = if (selectedTags.contains(tag.tag)) {
-                                        selectedTags - tag.tag
+                                    selectedTags = if (selectedTags.contains(tag)) {
+                                        selectedTags - tag
                                     } else {
-                                        selectedTags + tag.tag
+                                        selectedTags + tag
+
                                     }
                                 },
                                 label = { Text(tag.tag) }
@@ -306,7 +323,7 @@ fun ExpenseForm(
                 TextButton(
                     onClick = {
                         if (newTagText.isNotBlank()) {
-                            selectedTags = selectedTags + newTagText
+                            newTags.add(newTagText)
                             newTagText = ""
                         }
                         showTagDialog = false

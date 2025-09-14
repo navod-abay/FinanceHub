@@ -7,10 +7,12 @@ import androidx.lifecycle.viewModelScope
 import com.example.financehub.data.database.Expense
 import com.example.financehub.data.database.Tags
 import com.example.financehub.data.repository.ExpenseRepository
+import com.example.financehub.service.ReccommendationService
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -20,8 +22,8 @@ import java.util.Date
 
 class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() {
     private val _query = MutableStateFlow("")
-    var name : MutableState<String> = mutableStateOf("")
-    var amount : MutableState<String> = mutableStateOf("")
+    var name: MutableState<String> = mutableStateOf("")
+    var amount: MutableState<String> = mutableStateOf("")
 
     val date = Date() // Current date
     val dateTuple = com.example.financehub.util.getDateComponents(date)
@@ -33,14 +35,29 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
     var selectedTag: MutableState<Tags?> = mutableStateOf(null)
     var targetAmount: MutableState<String> = mutableStateOf("")
 
+    private val _reccommendedTags = MutableStateFlow<List<Int>>(emptyList())
+    val reccommendedTags: StateFlow<List<Int>> = _reccommendedTags.asStateFlow()
 
-    fun addExpense(tags: Set<String> ) {
+
+    fun addExpense(tags: Set<Tags>, newTags: List<String>) {
         viewModelScope.launch {
             if (name.value.isBlank() || amount.value.isBlank()) return@launch
-            val day: Int = if(dayState.value.isBlank())  dateTuple.first else dayState.value.toInt()
-            val month: Int = if(monthState.value.isBlank())  dateTuple.second else monthState.value.toInt()
-            val year: Int = if(yearState.value.isBlank())  dateTuple.third else yearState.value.toInt()
-            repository.insertExpense(Expense(title = name.value, amount = amount.value.toInt(), date = day, month = month, year = year), tags = tags)
+            val day: Int = if (dayState.value.isBlank()) dateTuple.first else dayState.value.toInt()
+            val month: Int =
+                if (monthState.value.isBlank()) dateTuple.second else monthState.value.toInt()
+            val year: Int =
+                if (yearState.value.isBlank()) dateTuple.third else yearState.value.toInt()
+            repository.insertExpense(
+                Expense(
+                    title = name.value,
+                    amount = amount.value.toInt(),
+                    date = day,
+                    month = month,
+                    year = year
+                ),
+                tags = tags,
+                newTags = newTags
+            )
         }
     }
 

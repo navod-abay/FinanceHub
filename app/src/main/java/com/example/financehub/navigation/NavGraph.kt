@@ -25,7 +25,7 @@ import com.example.financehub.viewmodel.TargetsViewModel
 fun NavGraph(navController: NavHostController) {
     val applicationContext = LocalContext.current.applicationContext
     val database by lazy { AppDatabase.getDatabase(applicationContext) }
-    val repository by lazy { ExpenseRepository(database.expenseDao(), database.tagsDao(), database.expenseTagsCrossRefDao(), database.targetDao()) }
+    val repository by lazy { ExpenseRepository(database.expenseDao(), database.tagsDao(), database.expenseTagsCrossRefDao(), database.targetDao(), database.graphEdgeDAO()) }
     val expenseViewModel by lazy { ExpenseViewModel(repository) }
     val homeScreenViewModel by lazy { HomeScreenViewModel(repository) }
     val transactionsViewModel by lazy { TransactionsViewModel(repository) }

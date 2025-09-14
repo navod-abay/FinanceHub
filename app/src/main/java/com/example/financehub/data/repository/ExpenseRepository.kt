@@ -37,13 +37,16 @@ class ExpenseRepository(
     private val tagDao: TagsDao,
     private val expenseTagsCrossRefDao: ExpenseTagsCrossRefDao,
     private val targetDao: TargetDao,
-    private val edgeDAO: GraphEdgeDAO
+    private val graphEdgeDAO: GraphEdgeDAO
 ) {
     @Transaction
-    suspend fun insertExpense(expense: Expense, tags: Set<String>) {
+    suspend fun insertExpense(expense: Expense, tags: Set<Tags>, newTags: List<String>){
         val expenseID = expenseDao.insertExpense(expense).toInt()
         tags.forEach { tag ->
-            addTagforExpense(expenseID, expense, tag)
+            addExistingTagforExpense(expenseID, expense, tag)
+        }
+        newTags.forEach { tag ->
+            addNewTagforExpense(expenseID, expense, tag)
         }
     }
 
@@ -69,10 +72,14 @@ class ExpenseRepository(
                     total
                 }
             }.map { total ->
-                Log.d("ExpenseRepository", "Getting total for month: $currentMonth, year: $currentYear, total: $total")
+                Log.d(
+                    "ExpenseRepository",
+                    "Getting total for month: $currentMonth, year: $currentYear, total: $total"
+                )
                 total
             }
     }
+
     fun getPagedExpensesWithTags(): Flow<PagingData<ExpenseWithTags>> {
         return Pager(
             config = PagingConfig(
@@ -104,7 +111,7 @@ class ExpenseRepository(
     }
 
     // Inside ExpenseRepository implementation
-    suspend fun updateExpense(expense: Expense, addedTags: Set<String>, removedTags:Set<String>) {
+    suspend fun updateExpense(expense: Expense, addedTags: Set<String>, removedTags: Set<String>) {
         expenseDao.updateExpense(expense)
 
         removedTags.forEach { tagText ->
@@ -118,39 +125,48 @@ class ExpenseRepository(
     private suspend fun removeTagFromExpense(expenseID: Int, amount: Int, tagString: String) {
         val tag = tagDao.getTagbyTag(tagString)
         if (tag != null) {
-            expenseTagsCrossRefDao.deleteExpenseTagsCrossRef(ExpenseTagsCrossRef(expenseID, tag.tagID))
+            expenseTagsCrossRefDao.deleteExpenseTagsCrossRef(
+                ExpenseTagsCrossRef(
+                    expenseID,
+                    tag.tagID
+                )
+            )
             tagDao.decrementAmount(tag.tagID, amount)
         }
     }
 
-    private suspend fun addTagforExpense(expenseID: Int, expense: Expense, tag: String) {
-
-            var tagID = tagDao.getTagIDbyTag(tag)
-            if (tagID == null) {
-                tagID = tagDao.insertTag(
-                    Tags(
-                        tag = tag,
-                        monthlyAmount = expense.amount,
-                        currentMonth = expense.month,
-                        currentYear = expense.year,
-                        createdDay = expense.date,
-                        createdMonth = expense.month,
-                        createdYear = expense.year
-                    )
-                ).toInt()
-            } else {
-                tagDao.incrementAmount(tagID, expense.amount, expense.month, expense.year)
-                targetDao.getTarget(expense.month, expense.year, tagID)?.let { target ->
-                    // If a target exists for this tag, increment the spent amount
-                    targetDao.incrementSpentAmount(expense.month, expense.year, tagID, expense.amount)
-                }
-            }
-            expenseTagsCrossRefDao.insertExpenseTagsCrossRef(
-                ExpenseTagsCrossRef(
-                    expenseID = expenseID,
-                    tagID = tagID
-                )
+    private suspend fun addNewTagforExpense(expenseID: Int, expense: Expense, tag: String) {
+        val tagID = tagDao.insertTag(
+            Tags(
+                tag = tag,
+                monthlyAmount = expense.amount,
+                currentMonth = expense.month,
+                currentYear = expense.year,
+                createdDay = expense.date,
+                createdMonth = expense.month,
+                createdYear = expense.year
             )
+        ).toInt()
+        expenseTagsCrossRefDao.insertExpenseTagsCrossRef(
+            ExpenseTagsCrossRef(
+                expenseID = expenseID,
+                tagID = tagID
+            )
+        )
+    }
+
+    private suspend fun addExistingTagforExpense(expenseID: Int, expense: Expense, tag: Tags) {
+        tagDao.incrementAmount(tag.tagID, expense.amount, expense.month, expense.year)
+        targetDao.getTarget(expense.month, expense.year, tag.tagID)?.let { target ->
+            // If a target exists for this tag, increment the spent amount
+            targetDao.incrementSpentAmount(expense.month, expense.year, tag.tagID, expense.amount)
+        }
+        expenseTagsCrossRefDao.insertExpenseTagsCrossRef(
+            ExpenseTagsCrossRef(
+                expenseID = expenseID,
+                tagID = tag.tagID
+            )
+        )
 
     }
 
@@ -238,13 +254,14 @@ class ExpenseRepository(
         val totalAmount = calculateTotalAmount(expenses)
 
         // Calculate number of months (including partial months)
-        val months = if (startDate.year == endDate.year && startDate.monthValue == endDate.monthValue) {
-            1.0 // Same month
-        } else {
-            val yearDiff = endDate.year - startDate.year
-            val monthDiff = endDate.monthValue - startDate.monthValue
-            (yearDiff * 12 + monthDiff + 1).toDouble()
-        }
+        val months =
+            if (startDate.year == endDate.year && startDate.monthValue == endDate.monthValue) {
+                1.0 // Same month
+            } else {
+                val yearDiff = endDate.year - startDate.year
+                val monthDiff = endDate.monthValue - startDate.monthValue
+                (yearDiff * 12 + monthDiff + 1).toDouble()
+            }
 
         return totalAmount / months
     }
@@ -357,6 +374,7 @@ class ExpenseRepository(
                     )
                 }
             }
+
             TimeAggregation.MONTHLY -> {
                 // Group by month
                 timeSeriesData.groupBy { point ->
@@ -430,7 +448,8 @@ class ExpenseRepository(
 
     fun getPagedFilteredExpenses(params: FilterParams): Flow<PagingData<ExpenseWithTags>> {
         val range = params.resolveDateRange()
-        val tagIds = if (params.requiredTagIds.isEmpty()) listOf(-1) else params.requiredTagIds.map { it }
+        val tagIds =
+            if (params.requiredTagIds.isEmpty()) listOf(-1) else params.requiredTagIds.map { it }
         return Pager(
             config = PagingConfig(
                 pageSize = 20,

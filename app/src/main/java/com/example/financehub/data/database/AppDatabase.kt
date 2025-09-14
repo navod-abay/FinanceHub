@@ -12,7 +12,7 @@ import com.example.financehub.data.dao.TagsDao
 import com.example.financehub.data.dao.TargetDao
 
 
-@Database(entities = [Expense::class, Tags::class, ExpenseTagsCrossRef::class, Target::class], version = 8)
+@Database(entities = [Expense::class, Tags::class, ExpenseTagsCrossRef::class, Target::class, GraphEdge::class], version = 8)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao
     abstract fun tagsDao(): TagsDao
