@@ -1,20 +1,24 @@
 package com.example.financehub.service
 
+import android.util.Log
+import com.example.financehub.data.database.models.TagRef
 import com.example.financehub.data.repository.ExpenseRepositoryInterface
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlin.random.Random
 
 class ReccommendationService(private val repository: ExpenseRepositoryInterface) {
-    suspend fun getTagReccomendations(TagId: Int): List<Int> {
+    suspend fun getTagReccomendations(TagId: Int): List<TagRef> {
         val alpha = 0.8
         var iterationDepth = 20
-        val tags = repository.getAllTags().stateIn(
-            scope = CoroutineScope(Dispatchers.IO),
-        ).value
+        val tags = repository.getAllTagRefs().first().sortedByDescending { it.tagID }
         val numTags = tags.size
-        val lastId = tags[numTags - 1].tagID
+        Log.d("ReccomendationService", "numTags: $numTags")
+        Log.d("ReccomendationService", "tags: $tags")
+        val lastId = tags[0].tagID
+        Log.d("ReccomendationService", "lastId: $lastId")
         val graph = Array(lastId) { DoubleArray(lastId) }
         val graphEdges = repository.getAllGraphEdges().stateIn(
             scope = CoroutineScope(Dispatchers.IO),
@@ -39,7 +43,7 @@ class ReccommendationService(private val repository: ExpenseRepositoryInterface)
         var curNode = TagId - 1
         while (iterationDepth > 0) {
             // println("Iteration depth: $iterationDepth")
-            while(true) {
+            while (true) {
                 if (curNode == TagId - 1 && Random.nextDouble() < alpha) {
                     // println("Moving to another node")
                     val walkedNodes = BooleanArray(lastId) { false }
@@ -71,8 +75,10 @@ class ReccommendationService(private val repository: ExpenseRepositoryInterface)
             }
             iterationDepth--
         }
-        print(visitedNodes.toList().sortedByDescending { (_, value) -> value })
-        return visitedNodes.toList().sortedByDescending { (_, value) -> value }
-            .toMap().keys.toList()
+        val reccommendedTagRefs = tags.filter {
+            visitedNodes.containsKey(it.tagID)
+        }.sortedByDescending { visitedNodes[it.tagID] }
+        Log.d("ReccomendationService", "Reccommended tags: $reccommendedTagRefs")
+        return reccommendedTagRefs
     }
 }

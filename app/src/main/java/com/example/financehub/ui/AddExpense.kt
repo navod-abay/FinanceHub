@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import com.example.financehub.data.database.Tags
+import com.example.financehub.data.database.models.TagRef
 import com.example.financehub.ui.TargetForm
 
 
@@ -65,7 +66,7 @@ fun ExpenseForm(
     viewModel: ExpenseViewModel,
     navController: NavController
 ) {
-    var selectedTags by remember { mutableStateOf(setOf<Tags>()) }
+    var selectedTags by remember { mutableStateOf(setOf<TagRef>()) }
     var showTagDialog by remember { mutableStateOf(false) }
     var newTagText by remember { mutableStateOf("") }
 
@@ -215,16 +216,6 @@ fun ExpenseForm(
                     }
                 )
             }
-            items(reccommendedTags.toList()) { tag ->
-                InputChip(
-                    selected = false,
-                    onClick = {},
-                    label = {Text(tag.toString())}
-                )
-            }
-
-
-
             item {
                 AssistChip(
                     onClick = { showTagDialog = true },
@@ -309,8 +300,21 @@ fun ExpenseForm(
                                     selectedTags = if (selectedTags.contains(tag)) {
                                         selectedTags - tag
                                     } else {
+                                        viewModel.getReccomendations(tag.tagID)
                                         selectedTags + tag
-
+                                    }
+                                },
+                                label = { Text(tag.tag) }
+                            )
+                        }
+                        reccommendedTags.forEach { tag ->
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    newTagText = ""
+                                    // When clicking on a reccommended tag, add it to selected tags
+                                    if (tag !in selectedTags) {
+                                        selectedTags = selectedTags +  tag
                                     }
                                 },
                                 label = { Text(tag.tag) }

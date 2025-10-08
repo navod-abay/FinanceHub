@@ -5,7 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.financehub.data.database.Expense
-import com.example.financehub.data.database.Tags
+import com.example.financehub.data.database.models.TagRef
 import com.example.financehub.data.repository.ExpenseRepository
 import com.example.financehub.service.ReccommendationService
 import kotlinx.coroutines.launch
@@ -32,14 +32,16 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
     var yearState: MutableState<String> = mutableStateOf(dateTuple.third.toString())
 
     // Shared states for both Expense and Target forms
-    var selectedTag: MutableState<Tags?> = mutableStateOf(null)
+    var selectedTag: MutableState<TagRef?> = mutableStateOf(null)
     var targetAmount: MutableState<String> = mutableStateOf("")
 
-    private val _reccommendedTags = MutableStateFlow<List<Int>>(emptyList())
-    val reccommendedTags: StateFlow<List<Int>> = _reccommendedTags.asStateFlow()
+    private val _reccommendedTags = MutableStateFlow<List<TagRef>>(emptyList())
+    val reccommendedTags: StateFlow<List<TagRef>> = _reccommendedTags.asStateFlow()
 
 
-    fun addExpense(tags: Set<Tags>, newTags: List<String>) {
+    val reccommendationService = ReccommendationService(repository)
+
+    fun addExpense(tags: Set<TagRef>, newTags: List<String>) {
         viewModelScope.launch {
             if (name.value.isBlank() || amount.value.isBlank()) return@launch
             val day: Int = if (dayState.value.isBlank()) dateTuple.first else dayState.value.toInt()
@@ -61,7 +63,14 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
         }
     }
 
-    val matchingTags: StateFlow<List<Tags>> = _query
+    fun getReccomendations(tagId: Int) {
+        viewModelScope.launch {
+            val recs = reccommendationService.getTagReccomendations(tagId)
+            _reccommendedTags.value = recs
+        }
+    }
+
+    val matchingTags: StateFlow<List<TagRef>> = _query
         .debounce(300) // Wait for user to stop typing
         .flatMapLatest { query ->
             if (query.isBlank()) flowOf(emptyList()) else repository.getMatchingTags(query)

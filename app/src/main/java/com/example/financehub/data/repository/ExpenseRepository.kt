@@ -8,6 +8,7 @@ import androidx.room.Transaction
 import com.example.financehub.data.dao.ExpenseDao
 import com.example.financehub.data.dao.ExpenseTagsCrossRefDao
 import com.example.financehub.data.dao.GraphEdgeDAO
+import com.example.financehub.data.dao.TagRefDao
 import com.example.financehub.data.dao.TagsDao
 import com.example.financehub.data.dao.TargetDao
 import com.example.financehub.data.database.Expense
@@ -17,6 +18,7 @@ import com.example.financehub.data.database.GraphEdge
 import com.example.financehub.data.database.TagWithAmount
 import com.example.financehub.data.database.Tags
 import com.example.financehub.data.database.Target
+import com.example.financehub.data.database.models.TagRef
 import com.example.financehub.viewmodel.TargetWithTag
 import com.example.financehub.viewmodel.FilterParams
 import kotlinx.coroutines.flow.Flow
@@ -37,10 +39,11 @@ class ExpenseRepository(
     private val tagDao: TagsDao,
     private val expenseTagsCrossRefDao: ExpenseTagsCrossRefDao,
     private val targetDao: TargetDao,
-    private val graphEdgeDAO: GraphEdgeDAO
-) {
+    private val graphEdgeDAO: GraphEdgeDAO,
+    private val tagRefDao: TagRefDao
+) : ExpenseRepositoryInterface{
     @Transaction
-    suspend fun insertExpense(expense: Expense, tags: Set<Tags>, newTags: List<String>){
+    suspend fun insertExpense(expense: Expense, tags: Set<TagRef>, newTags: List<String>){
         val expenseID = expenseDao.insertExpense(expense).toInt()
         tags.forEach { tag ->
             addExistingTagforExpense(expenseID, expense, tag)
@@ -111,20 +114,21 @@ class ExpenseRepository(
     }
 
     // Inside ExpenseRepository implementation
-    suspend fun updateExpense(expense: Expense, addedTags: Set<String>, removedTags: Set<String>) {
+    suspend fun updateExpense(expense: Expense, addedExistingTags: Set<TagRef>, removedTags: Set<TagRef>, addedNewTags: List<String>) {
         expenseDao.updateExpense(expense)
 
-        removedTags.forEach { tagText ->
-            removeTagFromExpense(expense.expenseID, expense.amount, tagText)
+        removedTags.forEach { tagRef ->
+            removeTagFromExpense(expense.expenseID, expense.amount, tagRef)
         }
-        addedTags.forEach { tagText ->
-            addTagforExpense(expense.expenseID, expense, tagText)
+        addedExistingTags.forEach { tagRef ->
+            addExistingTagforExpense(expense.expenseID, expense, tagRef)
+        }
+        addedNewTags.forEach { tagText ->
+            addNewTagforExpense(expense.expenseID, expense, tagText)
         }
     }
 
-    private suspend fun removeTagFromExpense(expenseID: Int, amount: Int, tagString: String) {
-        val tag = tagDao.getTagbyTag(tagString)
-        if (tag != null) {
+    private suspend fun removeTagFromExpense(expenseID: Int, amount: Int, tag: TagRef) {
             expenseTagsCrossRefDao.deleteExpenseTagsCrossRef(
                 ExpenseTagsCrossRef(
                     expenseID,
@@ -132,7 +136,6 @@ class ExpenseRepository(
                 )
             )
             tagDao.decrementAmount(tag.tagID, amount)
-        }
     }
 
     private suspend fun addNewTagforExpense(expenseID: Int, expense: Expense, tag: String) {
@@ -155,7 +158,7 @@ class ExpenseRepository(
         )
     }
 
-    private suspend fun addExistingTagforExpense(expenseID: Int, expense: Expense, tag: Tags) {
+    private suspend fun addExistingTagforExpense(expenseID: Int, expense: Expense, tag: TagRef) {
         tagDao.incrementAmount(tag.tagID, expense.amount, expense.month, expense.year)
         targetDao.getTarget(expense.month, expense.year, tag.tagID)?.let { target ->
             // If a target exists for this tag, increment the spent amount
@@ -170,8 +173,8 @@ class ExpenseRepository(
 
     }
 
-    fun getMatchingTags(query: String): Flow<List<Tags>> {
-        return tagDao.getMatchingTags(query)
+    fun getMatchingTags(query: String): Flow<List<TagRef>> {
+        return tagRefDao.getMatchingTags(query)
     }
 
     /**
@@ -270,7 +273,7 @@ class ExpenseRepository(
      * Get all available tags in the database
      * @return Flow of all tags
      */
-    fun getAllTags(): Flow<List<Tags>> {
+    override fun getAllTags(): Flow<List<Tags>> {
         return tagDao.getAllTags()
     }
 
@@ -398,7 +401,7 @@ class ExpenseRepository(
     }
 
     // Add a new target to the database (stub, to be implemented)
-    suspend fun addTarget(month: Int, year: Int, tag: Tags, amount: Int) {
+    suspend fun addTarget(month: Int, year: Int, tag: TagRef, amount: Int) {
         val tagID = tag.tagID
         // Sum existing expenses for this tag in given month/year to initialize spent
         val existingSpent = expenseDao.getSumForTagMonthYear(tagID, month, year)
@@ -466,7 +469,11 @@ class ExpenseRepository(
         }.flow
     }
 
-    fun getAllGraphEdges(): Flow<List<GraphEdge>> {
+    override suspend fun getAllGraphEdges(): Flow<List<GraphEdge>> {
         return graphEdgeDAO.getAllGraphEdges()
+    }
+
+    override suspend fun getAllTagRefs(): Flow<List<TagRef>> {
+        return tagRefDao.getAllTagRefs()
     }
 }

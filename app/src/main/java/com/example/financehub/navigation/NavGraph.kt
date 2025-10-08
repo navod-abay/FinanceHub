@@ -25,7 +25,18 @@ import com.example.financehub.viewmodel.TargetsViewModel
 fun NavGraph(navController: NavHostController) {
     val applicationContext = LocalContext.current.applicationContext
     val database by lazy { AppDatabase.getDatabase(applicationContext) }
-    val repository by lazy { ExpenseRepository(database.expenseDao(), database.tagsDao(), database.expenseTagsCrossRefDao(), database.targetDao(), database.graphEdgeDAO()) }
+
+    val repository by lazy {
+        ExpenseRepository(
+            database.expenseDao(),
+            database.tagsDao(),
+            database.expenseTagsCrossRefDao(),
+            database.targetDao(),
+            database.graphEdgeDAO(),
+            database.TagRefDao()
+        )
+    }
+
     val expenseViewModel by lazy { ExpenseViewModel(repository) }
     val homeScreenViewModel by lazy { HomeScreenViewModel(repository) }
     val transactionsViewModel by lazy { TransactionsViewModel(repository) }
@@ -47,12 +58,16 @@ fun NavGraph(navController: NavHostController) {
             Transactions(navController = navController, viewModel = transactionsViewModel)
         }
         composable(route = "tags") {
-            TagsScreen(navController = navController, viewModel = tagsViewModel, targetsViewModel = targetViewModel)
+            TagsScreen(
+                navController = navController,
+                viewModel = tagsViewModel,
+                targetsViewModel = targetViewModel
+            )
         }
         composable(route = Screens.EditExpense.route) {
             EditExpenseScreen(navController = navController, viewModel = transactionsViewModel)
         }
-        composable(route=Screens.Analysis.route) {
+        composable(route = Screens.Analysis.route) {
             ExpenseAnalyticsScreen(navController = navController, viewModel = analyticsViewModel)
         }
     }

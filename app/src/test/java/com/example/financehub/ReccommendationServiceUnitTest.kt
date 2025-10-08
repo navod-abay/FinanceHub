@@ -1,5 +1,6 @@
 package com.example.financehub
 
+import com.example.financehub.data.database.models.TagRef
 import com.example.financehub.data.repository.MockExpenseRepository
 import org.junit.Test
 import com.example.financehub.service.ReccommendationService
@@ -18,13 +19,13 @@ class ReccommendationServiceUnitTest {
     @Test
     fun `Food reccs gives snack`() = runTest{
         val reccs = service.getTagReccomendations(2)
-        assert(reccs.contains(5))
+        assert(reccs.contains(TagRef(5, "Snacks")))
     }
 
     @Test
     fun `Food reccs contains Meal`() = runTest{
         val reccs = service.getTagReccomendations(2)
-        assert(reccs.contains(3))
+        assert(reccs.contains(TagRef(3, "Meal")))
     }
 
     @Test
@@ -36,13 +37,13 @@ class ReccommendationServiceUnitTest {
     @Test
     fun `Transportation reccs contains AIESEC`()= runTest {
         val reccs = service.getTagReccomendations(6)
-        assert(reccs.contains(1))
+        assert(reccs.contains(TagRef(1, "AIESEC")))
     }
 
     @Test
     fun `Transportation reccs contains Bus`()= runTest {
         val reccs = service.getTagReccomendations(6)
-        assert(reccs.contains(14))
+        assert(reccs.contains(TagRef(14, "Bus")))
     }
 
 }

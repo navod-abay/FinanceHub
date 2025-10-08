@@ -15,7 +15,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -44,7 +43,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.financehub.data.database.ExpenseWithTags
-import com.example.financehub.navigation.Screens
+import com.example.financehub.data.database.models.TagRef
 import com.example.financehub.viewmodel.TransactionsViewModel
 
 @Composable
@@ -82,10 +81,12 @@ fun ExpenseEditForm(
     var year by remember { mutableStateOf(expense.year.toString()) }
     var month by remember { mutableStateOf(expense.month.toString()) }
     var date by remember { mutableStateOf(expense.date.toString()) }
+    var newlyAddedTags by remember { mutableStateOf(setOf<String>()) }
+    val suggestedTags by viewModel.matchingTags.collectAsState()
 
     // Extract tag strings from the Tags objects
-    val initialTags = expenseWithTags.tags.map { it.tag }.toSet()
-    var selectedTags by remember { mutableStateOf(initialTags) }
+    val initialTags = expenseWithTags.tags.map { it -> TagRef(it.tagID, it.tag) }.toSet()
+    var selectedTags by remember { mutableStateOf(initialTags.toSet()) }
 
     var showTagDialog by remember { mutableStateOf(false) }
     var newTagText by remember { mutableStateOf("") }
@@ -174,12 +175,12 @@ fun ExpenseEditForm(
             ) {
                 items(
                     items = selectedTags.toList(),
-                    key = { tag->tag},
-                    ) { tag ->
+                    key = { tag -> tag },
+                ) { tag ->
                     InputChip(
                         selected = true,
                         onClick = { },
-                        label = { Text(tag) },
+                        label = { Text(tag.tag) },
                         trailingIcon = {
                             IconButton(
                                 onClick = {
@@ -227,7 +228,8 @@ fun ExpenseEditForm(
                 Button(
                     onClick = {
                         if (title.isNotBlank() && amount.isNotBlank() &&
-                            year.isNotBlank() && month.isNotBlank() && date.isNotBlank()) {
+                            year.isNotBlank() && month.isNotBlank() && date.isNotBlank()
+                        ) {
                             try {
                                 viewModel.updateExpense(
                                     expenseId = expense.expenseID,
@@ -237,7 +239,8 @@ fun ExpenseEditForm(
                                     month = month.toInt(),
                                     date = date.toInt(),
                                     newTags = selectedTags,
-                                    oldTags = initialTags
+                                    oldTags = initialTags,
+                                    newlyAddedTags = newlyAddedTags.toList()
                                 )
                                 navController.navigateUp()
                                 viewModel.clearSelectedExpense()
@@ -270,7 +273,11 @@ fun ExpenseEditForm(
                     // Custom tag input
                     OutlinedTextField(
                         value = newTagText,
-                        onValueChange = { newTagText = it },
+                        onValueChange = {
+                            newTagText = it
+                            viewModel.updateTagSearch(it)
+                        },
+
                         label = { Text("New Tag") },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -286,7 +293,7 @@ fun ExpenseEditForm(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        predefinedTags.forEach { tag ->
+                        selectedTags.forEach { tag ->
                             FilterChip(
                                 selected = tag in selectedTags,
                                 onClick = {
@@ -296,7 +303,7 @@ fun ExpenseEditForm(
                                         selectedTags + tag
                                     }
                                 },
-                                label = { Text(tag) }
+                                label = { Text(tag.tag) }
                             )
                         }
                     }
@@ -306,7 +313,7 @@ fun ExpenseEditForm(
                 TextButton(
                     onClick = {
                         if (newTagText.isNotBlank()) {
-                            selectedTags = selectedTags + newTagText
+                            newlyAddedTags = newlyAddedTags + newTagText
                             newTagText = ""
                         }
                         showTagDialog = false
