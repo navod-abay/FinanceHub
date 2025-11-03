@@ -61,7 +61,7 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
                     if (monthState.value.isBlank()) dateTuple.second else monthState.value.toInt()
                 val year: Int =
                     if (yearState.value.isBlank()) dateTuple.third else yearState.value.toInt()
-                
+                print("new Tags in view model: $newTags")
                 repository.insertExpense(
                     Expense(
                         title = name.value,

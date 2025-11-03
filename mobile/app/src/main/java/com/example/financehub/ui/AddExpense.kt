@@ -70,7 +70,7 @@ fun ExpenseForm(
     var showTagDialog by remember { mutableStateOf(false) }
     var newTagText by remember { mutableStateOf("") }
 
-    val newTags  = mutableListOf<String>()
+    val newTags  = remember { mutableStateListOf<String>() }
 
 
     val reccommendedTags by viewModel.reccommendedTags.collectAsState()
@@ -216,6 +216,25 @@ fun ExpenseForm(
                     }
                 )
             }
+            items(newTags) { tag ->
+                InputChip(
+                    selected = true,
+                    onClick = { },
+                    label = { Text(tag) },
+                    trailingIcon = {
+                        IconButton(
+                            onClick = {
+                                newTags.remove(tag)
+                            }
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Remove tag"
+                            )
+                        }
+                    }
+                )
+            }
             item {
                 AssistChip(
                     onClick = { showTagDialog = true },
@@ -326,9 +345,11 @@ fun ExpenseForm(
             confirmButton = {
                 TextButton(
                     onClick = {
+                        println("Add Button Pressed with tag: $newTagText")
                         if (newTagText.isNotBlank()) {
                             newTags.add(newTagText)
                             newTagText = ""
+                            println("New tags: $newTags")
                         }
                         showTagDialog = false
                     }
