@@ -1,60 +1,60 @@
-version: '3.8'
+  version: '3.8'
 
-services:
-  db:
-    image: postgres:15-alpine
-    container_name: financehub_db
-    environment:
-      POSTGRES_DB: financehub_db
-      POSTGRES_USER: financehub
-      POSTGRES_PASSWORD: password123
-      POSTGRES_HOST_AUTH_METHOD: trust
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./db_init:/docker-entrypoint-initdb.d
-    networks:
-      - financehub_network
-    restart: unless-stopped
+  services:
+    db:
+      image: postgres:15-alpine
+      container_name: financehub_db
+      environment:
+        POSTGRES_DB: financehub_db
+        POSTGRES_USER: financehub
+        POSTGRES_PASSWORD: password123
+        POSTGRES_HOST_AUTH_METHOD: trust
+      ports:
+        - "5432:5432"
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+        - ./db_init:/docker-entrypoint-initdb.d
+      networks:
+        - financehub_network
+      restart: unless-stopped
 
-  api:
-    build: .
-    container_name: financehub_api
-    environment:
-      DATABASE_URL: postgresql://financehub:password123@db:5432/financehub_db
-      DEBUG: "false"
-    ports:
-      - "8000:8000"
-    depends_on:
-      - db
-    networks:
-      - financehub_network
-    restart: unless-stopped
-    volumes:
-      - ./app:/app/app  # For development - remove in production
+    api:
+      build: .
+      container_name: financehub_api
+      environment:
+        DATABASE_URL: postgresql://financehub:password123@db:5432/financehub_db
+        DEBUG: "false"
+      ports:
+        - "8000:8000"
+      depends_on:
+        - db
+      networks:
+        - financehub_network
+      restart: unless-stopped
+      volumes:
+        - ./app:/app/app  # For development - remove in production
 
-  # Optional: Add nginx reverse proxy for production
-  nginx:
-    image: nginx:alpine
-    container_name: financehub_nginx
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      # - ./ssl:/etc/nginx/ssl:ro  # Uncomment for SSL certificates
-    depends_on:
-      - api
-    networks:
-      - financehub_network
-    restart: unless-stopped
-    profiles:
-      - production  # Only start with --profile production
+    # Optional: Add nginx reverse proxy for production
+    nginx:
+      image: nginx:alpine
+      container_name: financehub_nginx
+      ports:
+        - "80:80"
+        - "443:443"
+      volumes:
+        - ./nginx.conf:/etc/nginx/nginx.conf:ro
+        # - ./ssl:/etc/nginx/ssl:ro  # Uncomment for SSL certificates
+      depends_on:
+        - api
+      networks:
+        - financehub_network
+      restart: unless-stopped
+      profiles:
+        - production  # Only start with --profile production
 
-volumes:
-  postgres_data:
+  volumes:
+    postgres_data:
 
-networks:
-  financehub_network:
-    driver: bridge
+  networks:
+    financehub_network:
+      driver: bridge

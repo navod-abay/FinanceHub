@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
 object NetworkConfig {
     
     // Server configuration - update IP address to match your server
-    private const val BASE_URL = "http://locahost:8000/" // Replace with your server IP
+    private const val BASE_URL = "http://192.168.1.101:8000/" // Replace with your server IP
     private const val API_BASE_URL = "${BASE_URL}api/v1/"
     
     // Timeouts

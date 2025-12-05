@@ -10,7 +10,7 @@ import retrofit2.http.*
 interface FinanceHubApiService {
     
     // Health check
-    @GET("../health")
+    @GET("../../health")
     suspend fun healthCheck(): Response<HealthResponse>
     
     // Core Operations

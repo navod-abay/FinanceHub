@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+        Development-time network security config to allow cleartext (HTTP)
+        to the local server IP. For production you should disable cleartext
+        and use TLS (HTTPS) or restrict the domains strictly.
+    -->
+
+    <!-- default: disallow cleartext -->
+    <base-config cleartextTrafficPermitted="false" />
+
+    <!-- allow cleartext to the local IP used in development -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">192.168.1.101</domain>
+    </domain-config>
+
+    <!-- optional: allow for any 192.168.x.x (broader) - uncomment if needed -->
+    <!--
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">192.168.1.0/24</domain>
+    </domain-config>
+    -->
+</network-security-config>

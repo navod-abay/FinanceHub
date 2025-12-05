@@ -52,15 +52,14 @@ class ConnectivityMonitorWorker(
      * Check WiFi connectivity and update global state
      */
     private fun checkAndUpdateConnectivity() {
-        val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        val ssid = wifiManager.connectionInfo.ssid // Deprecated, but for now keep for compatibility
-        val isConnected = ssid == HOME_WIFI_SSID_1 || ssid == HOME_WIFI_SSID_2
+        // Use the helper which validates permissions and network transport
+        val isConnected = isOnHomeWifi(applicationContext)
         val wasConnected = ConnectivityState.isConnectedToHomeWifi.value
-        
+
         ConnectivityState.updateWifiState(isConnected)
-        
+
         Log.d(TAG, "WiFi state: connected=$isConnected, wasConnected=$wasConnected")
-        
+
         // If we just connected to home WiFi, trigger sync check
         if (isConnected && !wasConnected) {
             Log.d(TAG, "Connected to home WiFi - will test server reachability")
@@ -86,7 +85,7 @@ class ConnectivityMonitorWorker(
                 SyncTrigger.triggerSync(applicationContext)
             }
         } else if (result is NetworkResult.Error) {
-            Log.d(TAG, "Server is not reachable: ${(result as NetworkResult.Error).exception.message}")
+            Log.d(TAG, "Server is not reachable: ${result.exception.message}")
         }
     }
 
@@ -122,10 +121,10 @@ class ConnectivityMonitorWorker(
             return false
         }
 
-        val ssid = wifiManager.connectionInfo.ssid
-        val cleanSsid = ssid?.replace("\"", "") ?: ""
+        val ssid = wifiManager.connectionInfo?.ssid
+        val cleanSsid = ssid?.replace("\"", "")?.trim() ?: ""
         Log.d(TAG, "Current SSID: $cleanSsid")
-        
+
         // Check against both home network SSIDs
         return cleanSsid == HOME_WIFI_SSID_1 || cleanSsid == HOME_WIFI_SSID_2
     }

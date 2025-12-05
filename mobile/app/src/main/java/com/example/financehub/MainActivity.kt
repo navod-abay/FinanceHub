@@ -1,59 +1,58 @@
 package com.example.financehub
 
-import android.Manifest
 import android.content.Context
+import android.Manifest
 import android.content.pm.PackageManager
-import android.net.Uri
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 import androidx.navigation.compose.rememberNavController
 import androidx.work.Constraints
-import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
-import com.example.financehub.data.backup.DbBackupWorker
 import com.example.financehub.navigation.NavGraph
 import com.example.financehub.sync.ConnectivityState
 import com.example.financehub.sync.SyncTrigger
-import java.util.concurrent.TimeUnit
-
-fun scheduleBackupWorker(context: Context) {
-    Log.d("MainActivity", "Scheduling backup worker")
-    val constraints = Constraints.Builder()
-        .setRequiredNetworkType(NetworkType.UNMETERED) // Only Wi-Fi
-        .build()
-
-    val workRequest = PeriodicWorkRequestBuilder<DbBackupWorker>(
-        1, TimeUnit.DAYS
-    ).setConstraints(constraints)
-        .build()
-
-    WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-        "RoomBackupWork",
-        ExistingPeriodicWorkPolicy.KEEP,
-        workRequest
-    )
-}
 
 
 class MainActivity : ComponentActivity() {
     private val REQUEST_CODE_RESTORE_PERMISSION = 1001
     private lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
     private lateinit var openDocumentLauncher: ActivityResultLauncher<Array<String>>
+    private lateinit var locationPermissionLauncher: ActivityResultLauncher<String>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Log.d("MainActivity", "onCreate called")
         
-        // Initialize sync system
-        initializeSyncSystem()
+        // Register location permission launcher
+        locationPermissionLauncher = registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted: Boolean ->
+            if (isGranted) {
+                Log.d("MainActivity", "Location permission granted")
+            } else {
+                Log.w("MainActivity", "Location permission denied. SSID may be unavailable.")
+            }
+            // Start the sync system after permission decision (granted or denied)
+            initializeSyncSystem()
+        }
+
+        // Initialize sync system (request permission if needed)
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            initializeSyncSystem()
+        } else {
+            // Ask for location permission; initialization continues in callback
+            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
         
 
 /*
