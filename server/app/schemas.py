@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Union, Literal
+from typing import List, Optional, Union, Literal, Annotated
+from pydantic import Discriminator
 
 # Base models for database entities
 class ExpenseBase(BaseModel):
@@ -106,6 +107,9 @@ class CreateExpenseBatchRequest(BaseModel):
     month: int
     date: int
     client_id: str = Field(..., alias="clientId")
+    
+    class Config:
+        populate_by_name = True
 
 class UpdateExpenseBatchRequest(BaseModel):
     type: Literal["update_expense"]
@@ -115,15 +119,27 @@ class UpdateExpenseBatchRequest(BaseModel):
     year: int
     month: int
     date: int
+    
+    class Config:
+        populate_by_name = True
 
 class DeleteExpenseBatchRequest(BaseModel):
     type: Literal["delete_expense"]
     server_id: str = Field(..., alias="serverId")
+    
+    class Config:
+        populate_by_name = True
 
-ExpenseOperation = Union[CreateExpenseBatchRequest, UpdateExpenseBatchRequest, DeleteExpenseBatchRequest]
+ExpenseOperation = Annotated[
+    Union[CreateExpenseBatchRequest, UpdateExpenseBatchRequest, DeleteExpenseBatchRequest],
+    Field(discriminator='type')
+]
 
 class BatchSyncExpensesRequest(BaseModel):
     operations: List[ExpenseOperation]
+    
+    class Config:
+        populate_by_name = True
 
 # --- Tag ---
 class CreateTagBatchRequest(BaseModel):
@@ -223,9 +239,15 @@ class SyncResultType(BaseModel):
     client_id: Optional[str] = Field(None, alias="clientId")
     server_id: Optional[str] = Field(None, alias="serverId")
     error: Optional[str] = None
+    
+    class Config:
+        populate_by_name = True
 
 class BatchSyncResponse(BaseModel):
     results: List[SyncResultType]
+    
+    class Config:
+        populate_by_name = True
 
 # API entity models (what server returns)
 class ApiExpense(BaseModel):
@@ -237,6 +259,9 @@ class ApiExpense(BaseModel):
     date: int
     created_at: int = Field(..., alias="createdAt")
     updated_at: int = Field(..., alias="updatedAt")
+    
+    class Config:
+        populate_by_name = True
 
 class ApiTag(BaseModel):
     id: str
@@ -283,6 +308,6 @@ class UpdatedDataResponse(BaseModel):
     expense_tags: List[ApiExpenseTag] = Field([], alias="expenseTags")
     graph_edges: List[ApiGraphEdge] = Field([], alias="graphEdges")
 
-class Config:
-    orm_mode = True
-    allow_population_by_field_name = True
+    class Config:
+        orm_mode = True
+        populate_by_name = True
