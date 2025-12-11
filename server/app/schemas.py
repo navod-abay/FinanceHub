@@ -152,6 +152,9 @@ class CreateTagBatchRequest(BaseModel):
     created_month: int = Field(..., alias="createdMonth")
     created_year: int = Field(..., alias="createdYear")
     client_id: str = Field(..., alias="clientId")
+    
+    class Config:
+        populate_by_name = True
 
 class UpdateTagBatchRequest(BaseModel):
     type: Literal["update_tag"]
@@ -160,15 +163,27 @@ class UpdateTagBatchRequest(BaseModel):
     monthly_amount: int = Field(..., alias="monthlyAmount")
     current_month: int = Field(..., alias="currentMonth")
     current_year: int = Field(..., alias="currentYear")
+    
+    class Config:
+        populate_by_name = True
 
 class DeleteTagBatchRequest(BaseModel):
     type: Literal["delete_tag"]
     server_id: str = Field(..., alias="serverId")
+    
+    class Config:
+        populate_by_name = True
 
-TagOperation = Union[CreateTagBatchRequest, UpdateTagBatchRequest, DeleteTagBatchRequest]
+TagOperation = Annotated[
+    Union[CreateTagBatchRequest, UpdateTagBatchRequest, DeleteTagBatchRequest],
+    Field(discriminator='type')
+]
 
 class BatchSyncTagsRequest(BaseModel):
     operations: List[TagOperation]
+    
+    class Config:
+        populate_by_name = True
 
 # --- Target ---
 class CreateTargetBatchRequest(BaseModel):
@@ -179,21 +194,36 @@ class CreateTargetBatchRequest(BaseModel):
     amount: int
     spent: int
     client_id: str = Field(..., alias="clientId")
+    
+    class Config:
+        populate_by_name = True
 
 class UpdateTargetBatchRequest(BaseModel):
     type: Literal["update_target"]
     server_id: str = Field(..., alias="serverId")
     amount: int
     spent: int
+    
+    class Config:
+        populate_by_name = True
 
 class DeleteTargetBatchRequest(BaseModel):
     type: Literal["delete_target"]
     server_id: str = Field(..., alias="serverId")
+    
+    class Config:
+        populate_by_name = True
 
-TargetOperation = Union[CreateTargetBatchRequest, UpdateTargetBatchRequest, DeleteTargetBatchRequest]
+TargetOperation = Annotated[
+    Union[CreateTargetBatchRequest, UpdateTargetBatchRequest, DeleteTargetBatchRequest],
+    Field(discriminator='type')
+]
 
 class BatchSyncTargetsRequest(BaseModel):
     operations: List[TargetOperation]
+    
+    class Config:
+        populate_by_name = True
 
 # --- ExpenseTag ---
 class CreateExpenseTagBatchRequest(BaseModel):
@@ -201,15 +231,27 @@ class CreateExpenseTagBatchRequest(BaseModel):
     expense_id: str = Field(..., alias="expenseId")
     tag_id: str = Field(..., alias="tagId")
     client_id: str = Field(..., alias="clientId")
+    
+    class Config:
+        populate_by_name = True
 
 class DeleteExpenseTagBatchRequest(BaseModel):
     type: Literal["delete_expense_tag"]
     server_id: str = Field(..., alias="serverId")
+    
+    class Config:
+        populate_by_name = True
 
-ExpenseTagOperation = Union[CreateExpenseTagBatchRequest, DeleteExpenseTagBatchRequest]
+ExpenseTagOperation = Annotated[
+    Union[CreateExpenseTagBatchRequest, DeleteExpenseTagBatchRequest],
+    Field(discriminator='type')
+]
 
 class BatchSyncExpenseTagsRequest(BaseModel):
     operations: List[ExpenseTagOperation]
+    
+    class Config:
+        populate_by_name = True
 
 # --- GraphEdge ---
 class CreateGraphEdgeBatchRequest(BaseModel):
@@ -218,20 +260,35 @@ class CreateGraphEdgeBatchRequest(BaseModel):
     to_tag_id: str = Field(..., alias="toTagId")
     weight: int
     client_id: str = Field(..., alias="clientId")
+    
+    class Config:
+        populate_by_name = True
 
 class UpdateGraphEdgeBatchRequest(BaseModel):
     type: Literal["update_graph_edge"]
     server_id: str = Field(..., alias="serverId")
     weight: int
+    
+    class Config:
+        populate_by_name = True
 
 class DeleteGraphEdgeBatchRequest(BaseModel):
     type: Literal["delete_graph_edge"]
     server_id: str = Field(..., alias="serverId")
+    
+    class Config:
+        populate_by_name = True
 
-GraphEdgeOperation = Union[CreateGraphEdgeBatchRequest, UpdateGraphEdgeBatchRequest, DeleteGraphEdgeBatchRequest]
+GraphEdgeOperation = Annotated[
+    Union[CreateGraphEdgeBatchRequest, UpdateGraphEdgeBatchRequest, DeleteGraphEdgeBatchRequest],
+    Field(discriminator='type')
+]
 
 class BatchSyncGraphEdgesRequest(BaseModel):
     operations: List[GraphEdgeOperation]
+    
+    class Config:
+        populate_by_name = True
 
 # Batch sync result
 class SyncResultType(BaseModel):

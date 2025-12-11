@@ -5,10 +5,10 @@ import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
 import androidx.room.ColumnInfo
 import androidx.room.Index
+import java.util.UUID
 
 @Entity(
     tableName = "targets",
-    primaryKeys = ["month", "year", "tagID"],
     foreignKeys = [
         ForeignKey(
             entity = Tags::class,
@@ -17,9 +17,15 @@ import androidx.room.Index
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index(value = ["tagID"])]
+    indices = [
+        Index(value = ["tagID"]),
+        Index(value = ["month", "year", "tagID"], unique = true)
+    ]
 )
 data class Target(
+    @PrimaryKey
+    @ColumnInfo(name = "id")
+    val id: String = UUID.randomUUID().toString(),  // New primary key
     @ColumnInfo(name = "month")
     val month: Int = 0,
     @ColumnInfo(name = "year")

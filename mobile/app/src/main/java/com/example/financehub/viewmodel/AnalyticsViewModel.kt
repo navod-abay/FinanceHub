@@ -10,7 +10,6 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
-import javax.inject.Inject
 import com.example.financehub.data.repository.TimeSeriesPoint
 
 /**
@@ -22,7 +21,7 @@ data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val 
 
 
 
-class AnalyticsViewModel @Inject constructor(
+class AnalyticsViewModel  constructor(
     private val repository: ExpenseRepository
 ) : ViewModel() {
 

@@ -12,19 +12,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.navigation.compose.rememberNavController
-import androidx.work.Constraints
-import androidx.work.NetworkType
 import com.example.financehub.navigation.NavGraph
 import com.example.financehub.sync.ConnectivityState
 import com.example.financehub.sync.SyncTrigger
 
-
 class MainActivity : ComponentActivity() {
-    private val REQUEST_CODE_RESTORE_PERMISSION = 1001
-    private lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
-    private lateinit var openDocumentLauncher: ActivityResultLauncher<Array<String>>
     private lateinit var locationPermissionLauncher: ActivityResultLauncher<String>
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Log.d("MainActivity", "onCreate called")
@@ -55,41 +48,7 @@ class MainActivity : ComponentActivity() {
         }
         
 
-/*
-        requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
-            if (isGranted) {
-                // Permission granted, now launch SAF picker
-                openDocumentLauncher.launch(arrayOf("application/octet-stream", "application/x-sqlite3", "application/db", "application/vnd.sqlite3", "/*/*"))
-            } else {
-                Log.e("MainActivity", "Permission denied. Cannot restore backup.")
-            }
-        }
 
-        // SAF launcher for picking a backup file
-        openDocumentLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-            if (uri != null) {
-                val prefs = getSharedPreferences("restore_prefs", Context.MODE_PRIVATE)
-                com.example.financehub.data.RestoreHelper.restoreFromBackup(this, uri)
-                prefs.edit().putBoolean("restored", true).apply()
-            } else {
-                Log.e("MainActivity", "No file selected for restore.")
-            }
-        }
-
-        val prefs = getSharedPreferences("restore_prefs", Context.MODE_PRIVATE)
-        prefs.edit().remove("restored").apply()
-        Log.d("MainActivity", "Restore preferences cleared")
-        val restored = prefs.getBoolean("restored", false)
-        if (!restored) {
-            // If permission is needed, request it, otherwise launch SAF picker directly
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
-            } else {
-                openDocumentLauncher.launch(arrayOf("application/octet-stream", "application/x-sqlite3", "application/db", "application/vnd.sqlite3", "*/*"))
-            }
-        }
-        */
- */
 
         enableEdgeToEdge()
         setContent {

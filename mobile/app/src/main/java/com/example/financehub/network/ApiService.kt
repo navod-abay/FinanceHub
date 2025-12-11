@@ -5,7 +5,7 @@ import retrofit2.Response
 import retrofit2.http.*
 
 /**
- * Retrofit API service interface for FinanceHub server communication
+ * Retrofit API service interface for com.example.financehub.FinanceHub server communication
  */
 interface FinanceHubApiService {
     

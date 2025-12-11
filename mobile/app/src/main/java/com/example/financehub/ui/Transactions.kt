@@ -11,6 +11,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -391,6 +393,17 @@ fun TransactionItem(
                     style = MaterialTheme.typography.titleMedium
                 )
                 Row {
+                    // Sync status icon: show Sync when pending, Done when synced
+                    Icon(
+                        imageVector = if (item.expense.pendingSync) Icons.Default.Sync else Icons.Default.Done,
+                        contentDescription = if (item.expense.pendingSync) "Pending sync" else "Synced",
+                        tint = if (item.expense.pendingSync) MaterialTheme.colorScheme.primary else Color.Gray,
+                        modifier = Modifier
+                            .size(18.dp)
+                            .align(Alignment.CenterVertically)
+                            .padding(end = 8.dp)
+                    )
+
                     IconButton(
                         onClick = { onEditClick(item) },
                     ) {
@@ -399,12 +412,14 @@ fun TransactionItem(
                             contentDescription = "Edit Transaction"
                         )
                     }
-                    Text(
-                        text = "${item.expense.amount} Rs.",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+
                 }
+
+                Text(
+                    text = "${item.expense.amount} Rs.",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
             }
 
             Spacer(modifier = Modifier.height(4.dp))

@@ -2,12 +2,10 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("kotlin-kapt") // For annotation processing
-    kotlin("plugin.serialization") version "2.2.20" // For Kotlin serialization
-    id("com.google.dagger.hilt.android") version "2.51.1" // Hilt plugin
+    kotlin("plugin.serialization") version "2.2.0"
+    id("kotlin-kapt")
 }
 
-apply(plugin = "dagger.hilt.android.plugin")
 
 android {
     namespace = "com.example.financehub"
@@ -59,7 +57,6 @@ dependencies {
 
     implementation(libs.androidx.paging.runtime)
     implementation(libs.androidx.paging.compose)
-    implementation(libs.firebase.database.ktx)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.smbj)
     testImplementation(libs.junit)
@@ -85,15 +82,10 @@ dependencies {
     implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-    
     // Lifecycle components for sync state
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.compose.runtime:runtime-livedata:1.5.4")
 
-    // Hilt dependencies for dependency injection
-    implementation("com.google.dagger:hilt-android:2.51.1")
-    kapt("com.google.dagger:hilt-android-compiler:2.51.1")
-    implementation("androidx.hilt:hilt-work:1.2.0")
-    kapt("androidx.hilt:hilt-compiler:1.2.0")
-
+    // WorkManager
+    implementation(libs.androidx.work.runtime.ktx)
 }

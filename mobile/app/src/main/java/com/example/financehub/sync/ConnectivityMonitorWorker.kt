@@ -76,10 +76,12 @@ class ConnectivityMonitorWorker(
         val apiService = ApiServiceFactory.apiService
         val result = safeApiCall { apiService.healthCheck() }
         val isReachable = result is NetworkResult.Success<*>
+        Log.d(TAG, "Server reachability test result: $isReachable")
         ConnectivityState.updateServerReachability(isReachable)
         if (isReachable) {
             Log.d(TAG, "Server is reachable")
             // If server is reachable and we have pending syncs, trigger sync
+            Log.d(TAG, "Pending sync count: ${ConnectivityState.pendingSyncCount.value}")
             if (ConnectivityState.pendingSyncCount.value > 0) {
                 Log.d(TAG, "Server reachable with pending syncs - triggering sync")
                 SyncTrigger.triggerSync(applicationContext)

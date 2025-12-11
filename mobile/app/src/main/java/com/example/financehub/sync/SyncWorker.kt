@@ -2,20 +2,17 @@ package com.example.financehub.sync
 
 import android.content.Context
 import android.util.Log
-import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import dagger.assisted.AssistedInject
-import dagger.assisted.Assisted
 
 /**
  * Worker responsible for performing actual data synchronization with the server.
  * It uses the SyncManager to orchestrate the entire sync process.
  */
-@HiltWorker
-class SyncWorker @AssistedInject constructor(
-    @Assisted context: Context,
-    @Assisted  workerParams: WorkerParameters,
+
+class SyncWorker  constructor(
+    context: Context,
+    workerParams: WorkerParameters,
     private val syncManager: SyncManager
 ) : CoroutineWorker(context, workerParams) {
 

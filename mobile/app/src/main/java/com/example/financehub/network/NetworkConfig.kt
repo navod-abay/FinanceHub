@@ -9,7 +9,7 @@ import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFact
 import java.util.concurrent.TimeUnit
 
 /**
- * Network configuration for the FinanceHub API
+ * Network configuration for the com.example.financehub.FinanceHub API
  */
 object NetworkConfig {
     

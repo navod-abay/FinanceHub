@@ -37,8 +37,6 @@ import com.example.financehub.network.models.UpdateTargetBatchRequest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * SyncManager handles synchronization between local database and server
@@ -51,8 +49,7 @@ import javax.inject.Singleton
  * - Delta sync: Only syncs changes since last sync
  * - 3-month data retention: Automatic cleanup of old data
  */
-@Singleton
-class SyncManager @Inject constructor(
+class SyncManager constructor(
     private val database: AppDatabase,
     private val apiService: FinanceHubApiService,
     private val context: Context
@@ -127,9 +124,10 @@ class SyncManager @Inject constructor(
     private suspend fun pushLocalChanges(): SyncResult {
         try {
             _syncProgress.value = _syncProgress.value.copy(stage = "Pushing local changes...")
-
+            Log.d("SyncManager", "Pushing local changes to server...")
             // Push expenses
             val pendingExpenses = database.expenseDao().getPendingSyncExpenses()
+            Log.d("SyncManager", "Found ${pendingExpenses.size} pending expenses to sync")
             pushExpensesToServer(pendingExpenses)
 
             // Push tags
@@ -224,10 +222,11 @@ class SyncManager @Inject constructor(
                     else -> null
                 }
             }.filterNotNull()
-
+            Log.d(TAG, "Pushing expense batch of size ${operations.size} to server")
             // Send batch to server
             val response = apiService.batchSyncExpenses(BatchSyncExpensesRequest(operations))
             if (response.isSuccessful) {
+                Log.d(TAG, "Expense batch synced successfully")
                 val responseBody = response.body()
                 if (responseBody != null) {
                     // Update local records with server IDs and sync status
@@ -282,7 +281,7 @@ class SyncManager @Inject constructor(
                     else -> null
                 }
             }.filterNotNull()
-
+            Log.d(TAG, "Pushing tag batch of size ${operations.size} to server")
             // Send batch to server
             val response = apiService.batchSyncTags(BatchSyncTagsRequest(operations))
             if (response.isSuccessful) {

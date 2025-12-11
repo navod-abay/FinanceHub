@@ -66,27 +66,38 @@ class Tag(Base):
 class ExpenseTagsCrossRef(Base):
     __tablename__ = "expense_tags"
     
-    expense_id = Column(String, ForeignKey("expenses.id"), primary_key=True)
-    tag_id = Column(String, ForeignKey("tags.id"), primary_key=True)
+    # Primary key - server uses UUID
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    
+    # Foreign keys
+    expense_id = Column(String, ForeignKey("expenses.id"), nullable=False)
+    tag_id = Column(String, ForeignKey("tags.id"), nullable=False)
     
     # Server-side metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relationships
     expense = relationship("Expense", back_populates="expense_tags")
     tag = relationship("Tag", back_populates="expense_tags")
     
+    # Unique constraint to prevent duplicates
+    __table_args__ = (Index('idx_expense_tag_unique', 'expense_id', 'tag_id', unique=True),)
+    
     def __repr__(self):
-        return f"<ExpenseTagsCrossRef(expense_id={self.expense_id}, tag_id={self.tag_id})>"
+        return f"<ExpenseTagsCrossRef(id={self.id}, expense_id={self.expense_id}, tag_id={self.tag_id})>"
 
 
 class Target(Base):
     __tablename__ = "targets"
     
-    # Composite primary key
-    month = Column(Integer, primary_key=True)
-    year = Column(Integer, primary_key=True)
-    tag_id = Column(String, ForeignKey("tags.id"), primary_key=True)
+    # Primary key - server uses UUID
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    
+    # Original composite key fields (now just regular columns)
+    month = Column(Integer, nullable=False)
+    year = Column(Integer, nullable=False)
+    tag_id = Column(String, ForeignKey("tags.id"), nullable=False)
     
     # Original fields
     amount = Column(Integer, nullable=False)
@@ -100,26 +111,36 @@ class Target(Base):
     # Relationships
     tag = relationship("Tag", back_populates="targets")
     
-    # Indexes
-    __table_args__ = (Index('idx_target_tag', 'tag_id'),)
+    # Indexes and unique constraint
+    __table_args__ = (
+        Index('idx_target_tag', 'tag_id'),
+        Index('idx_target_unique', 'month', 'year', 'tag_id', unique=True)
+    )
     
     def __repr__(self):
-        return f"<Target(month={self.month}, year={self.year}, tag_id={self.tag_id}, amount={self.amount})>"
+        return f"<Target(id={self.id}, month={self.month}, year={self.year}, tag_id={self.tag_id}, amount={self.amount})>"
 
 
 class GraphEdge(Base):
     __tablename__ = "graph_edges"
     
-    from_tag_id = Column(String, ForeignKey("tags.id"), primary_key=True)
-    to_tag_id = Column(String, ForeignKey("tags.id"), primary_key=True)
+    # Primary key - server uses UUID
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    
+    # Foreign keys
+    from_tag_id = Column(String, ForeignKey("tags.id"), nullable=False)
+    to_tag_id = Column(String, ForeignKey("tags.id"), nullable=False)
     weight = Column(Integer, nullable=False)
     
     # Server-side metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
-    # Indexes
-    __table_args__ = (Index('idx_graph_from_tag', 'from_tag_id'),)
+    # Indexes and unique constraint
+    __table_args__ = (
+        Index('idx_graph_from_tag', 'from_tag_id'),
+        Index('idx_graph_unique', 'from_tag_id', 'to_tag_id', unique=True)
+    )
     
     def __repr__(self):
-        return f"<GraphEdge(from_tag_id={self.from_tag_id}, to_tag_id={self.to_tag_id}, weight={self.weight})>"
+        return f"<GraphEdge(id={self.id}, from_tag_id={self.from_tag_id}, to_tag_id={self.to_tag_id}, weight={self.weight})>"
