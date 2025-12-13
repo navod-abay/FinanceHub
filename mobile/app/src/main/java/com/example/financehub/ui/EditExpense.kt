@@ -175,7 +175,7 @@ fun ExpenseEditForm(
             ) {
                 items(
                     items = selectedTags.toList(),
-                    key = { tag -> tag },
+                    key = { tag -> tag.tagID },
                 ) { tag ->
                     InputChip(
                         selected = true,

@@ -13,7 +13,7 @@ import com.example.financehub.data.dao.TagsDao
 import com.example.financehub.data.dao.TargetDao
 
 
-@Database(entities = [Expense::class, Tags::class, ExpenseTagsCrossRef::class, Target::class, GraphEdge::class], version = 10)
+@Database(entities = [Expense::class, Tags::class, ExpenseTagsCrossRef::class, Target::class, GraphEdge::class], version = 11)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao
     abstract fun tagsDao(): TagsDao
@@ -32,7 +32,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "expense_database"
-                ).addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10).build()
+                ).addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                    .fallbackToDestructiveMigration()
+                    .build()
                 INSTANCE = instance
                 instance
             }
@@ -123,95 +125,8 @@ abstract class AppDatabase : RoomDatabase() {
         
         private val MIGRATION_9_10 = object : Migration(9, 10) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // Step 1: Migrate expense_tags table
-                // Create new table with id as primary key
-                db.execSQL("""CREATE TABLE IF NOT EXISTS expense_tags_new (
-                    id TEXT PRIMARY KEY NOT NULL,
-                    expenseID INTEGER NOT NULL,
-                    tagID INTEGER NOT NULL,
-                    serverId TEXT,
-                    lastSyncedAt INTEGER,
-                    pendingSync INTEGER NOT NULL DEFAULT 0,
-                    syncOperation TEXT,
-                    createdAt INTEGER NOT NULL,
-                    updatedAt INTEGER NOT NULL,
-                    FOREIGN KEY(expenseID) REFERENCES expenses(expenseID) ON DELETE CASCADE,
-                    FOREIGN KEY(tagID) REFERENCES tags(tagID) ON DELETE CASCADE
-                )""")
-                
-                // Create unique index on the old composite key
-                db.execSQL("CREATE UNIQUE INDEX index_expense_tags_composite ON expense_tags_new(expenseID, tagID)")
-                
-                // Copy data with generated IDs
-                db.execSQL("""INSERT INTO expense_tags_new (id, expenseID, tagID, serverId, lastSyncedAt, pendingSync, syncOperation, createdAt, updatedAt)
-                    SELECT 
-                        CASE WHEN serverId IS NOT NULL THEN serverId ELSE hex(randomblob(16)) END,
-                        expenseID, tagID, serverId, lastSyncedAt, pendingSync, syncOperation, createdAt, updatedAt
-                    FROM expense_tags""")
-                
-                // Drop old table and rename new one
-                db.execSQL("DROP TABLE expense_tags")
-                db.execSQL("ALTER TABLE expense_tags_new RENAME TO expense_tags")
-                
-                // Step 2: Migrate targets table
-                db.execSQL("""CREATE TABLE IF NOT EXISTS targets_new (
-                    id TEXT PRIMARY KEY NOT NULL,
-                    month INTEGER NOT NULL,
-                    year INTEGER NOT NULL,
-                    tagID INTEGER NOT NULL,
-                    amount INTEGER NOT NULL,
-                    spent INTEGER NOT NULL,
-                    serverId TEXT,
-                    lastSyncedAt INTEGER,
-                    pendingSync INTEGER NOT NULL DEFAULT 0,
-                    syncOperation TEXT,
-                    createdAt INTEGER NOT NULL,
-                    updatedAt INTEGER NOT NULL,
-                    FOREIGN KEY(tagID) REFERENCES tags(tagID) ON DELETE CASCADE
-                )""")
-                
-                db.execSQL("CREATE UNIQUE INDEX index_targets_composite ON targets_new(month, year, tagID)")
-                db.execSQL("CREATE INDEX index_targets_tagID ON targets_new(tagID)")
-                
-                db.execSQL("""INSERT INTO targets_new (id, month, year, tagID, amount, spent, serverId, lastSyncedAt, pendingSync, syncOperation, createdAt, updatedAt)
-                    SELECT 
-                        CASE WHEN serverId IS NOT NULL THEN serverId ELSE hex(randomblob(16)) END,
-                        month, year, tagID, amount, spent, serverId, lastSyncedAt, pendingSync, syncOperation, createdAt, updatedAt
-                    FROM targets""")
-                
-                db.execSQL("DROP TABLE targets")
-                db.execSQL("ALTER TABLE targets_new RENAME TO targets")
-                
-                // Step 3: Migrate graph_edges table
-                db.execSQL("""CREATE TABLE IF NOT EXISTS graph_edges_new (
-                    id TEXT PRIMARY KEY NOT NULL,
-                    fromTagId INTEGER NOT NULL,
-                    toTagId INTEGER NOT NULL,
-                    weight INTEGER NOT NULL,
-                    serverId TEXT,
-                    lastSyncedAt INTEGER,
-                    pendingSync INTEGER NOT NULL DEFAULT 0,
-                    syncOperation TEXT,
-                    createdAt INTEGER NOT NULL,
-                    updatedAt INTEGER NOT NULL
-                )""")
-                
-                db.execSQL("CREATE UNIQUE INDEX index_graph_edges_composite ON graph_edges_new(fromTagId, toTagId)")
-                db.execSQL("CREATE INDEX index_graph_edges_fromTagId ON graph_edges_new(fromTagId)")
-                
-                db.execSQL("""INSERT INTO graph_edges_new (id, fromTagId, toTagId, weight, serverId, lastSyncedAt, pendingSync, syncOperation, createdAt, updatedAt)
-                    SELECT 
-                        CASE WHEN serverId IS NOT NULL THEN serverId ELSE hex(randomblob(16)) END,
-                        fromTagId, toTagId, weight, serverId, lastSyncedAt, pendingSync, syncOperation, createdAt, updatedAt
-                    FROM graph_edges""")
-                
-                db.execSQL("DROP TABLE graph_edges")
-                db.execSQL("ALTER TABLE graph_edges_new RENAME TO graph_edges")
-            }
-        }
-        
-        private val MIGRATION_9_8 = object : Migration(9, 8) {
-            override fun migrate(db: SupportSQLiteDatabase) {
+                // No schema changes needed - this migration is just to update the version number
+                // to match the current schema with serverId fields already added in migration 8->9
             }
         }
     }
