@@ -135,7 +135,8 @@ class ExpenseRepository(
     }
 
     fun getTopTagForMonth(currentMonth: Int, currentYear: Int): Flow<TagWithAmount> {
-        return tagDao.getTopTagForMonth(currentMonth, currentYear).map {
+        return tagDao.getTopTagForMonth(currentMonth + 1, currentYear).map {
+            Log.d("ExpenseRepository", "Top tag for month: $currentMonth, year: $currentYear is ${it?.tag} with amount ${it?.monthlyAmount}")
             it ?: TagWithAmount("No tag", 0)
         }
     }
@@ -168,7 +169,7 @@ class ExpenseRepository(
         ConnectivityState.updatePendingSyncCount(1)
 
         removedTags.forEach { tagRef ->
-            removeTagFromExpense(expense.expenseID, expense.amount, tagRef)
+            removeTagFromExpense(expense.expenseID, expense.amount, tagRef, expense.month, expense.year)
         }
         addedExistingTags.forEach { tagRef ->
             addExistingTagforExpense(expense.expenseID, expenseWithSync, tagRef)
@@ -178,7 +179,7 @@ class ExpenseRepository(
         }
     }
 
-    private suspend fun removeTagFromExpense(expenseID: Int, amount: Int, tag: TagRef) {
+    private suspend fun removeTagFromExpense(expenseID: Int, amount: Int, tag: TagRef, expenseMonth: Int, expenseYear: Int) {
         // Mark expense-tag relationship for deletion sync
         syncManager.markForSync(SyncEntityType.EXPENSE_TAG, "$expenseID-${tag.tagID}", SyncOperation.DELETE)
         _hasPendingSync.value = true
@@ -190,10 +191,12 @@ class ExpenseRepository(
                 tag.tagID
             )
         )
-        
-        // Update tag amount and mark for sync
-        tagDao.decrementAmount(tag.tagID, amount)
-        syncManager.markForSync(SyncEntityType.TAG, tag.tagID.toString(), SyncOperation.UPDATE)
+        val updatedTag: Tags = tagDao.getTagById(tag.tagID) ?: throw IllegalStateException("Tag not found")
+        if(updatedTag.currentMonth == expenseMonth &&
+            updatedTag.currentYear == expenseYear) {
+            tagDao.decrementAmount(tag.tagID, amount)
+            syncManager.markForSync(SyncEntityType.TAG, tag.tagID.toString(), SyncOperation.UPDATE)
+        }
     }
 
     private suspend fun addNewTagforExpense(expenseID: Int, expense: Expense, tag: String) {
@@ -582,6 +585,54 @@ class ExpenseRepository(
 
     override suspend fun getAllTagRefs(): Flow<List<TagRef>> {
         return tagRefDao.getAllTagRefs()
+    }
+
+    suspend fun addGraphEdgesForExpense(tags: List<Tags>){
+        for (i in tags.indices) {
+            for (j in tags.indices) {
+                if (i != j) {
+                    val fromTagId = tags[i].tagID
+                    val toTagId = tags[j].tagID
+                    val existingEdge = graphEdgeDAO.getGraphEdgeByTagIds(fromTagId, toTagId)
+                    if (existingEdge != null) {
+                        // Update existing edge
+                        val newWeight = existingEdge.weight + 1
+                        graphEdgeDAO.updateGraphEdgeWeight(
+                            fromTagId,
+                            toTagId,
+                            newWeight,
+                            System.currentTimeMillis()
+                        )
+                        // Mark for sync
+                        syncManager.markForSync(
+                            SyncEntityType.GRAPH_EDGE,
+                            "$fromTagId-$toTagId",
+                            SyncOperation.UPDATE
+                        )
+                    } else {
+                        // Create new edge
+                        val newEdge = GraphEdge(
+                            fromTagId = fromTagId,
+                            toTagId = toTagId,
+                            weight = 1,
+                            pendingSync = true,
+                            syncOperation = "CREATE",
+                            createdAt = System.currentTimeMillis(),
+                            updatedAt = System.currentTimeMillis()
+                        )
+                        graphEdgeDAO.insertEdge(newEdge)
+                        // Mark for sync
+                        syncManager.markForSync(
+                            SyncEntityType.GRAPH_EDGE,
+                            "$fromTagId-$toTagId",
+                            SyncOperation.CREATE
+                        )
+                    }
+                    _hasPendingSync.value = true
+                    ConnectivityState.updatePendingSyncCount(1)
+                }
+            }
+        }
     }
 
     // Additional sync-aware methods

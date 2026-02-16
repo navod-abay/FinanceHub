@@ -92,6 +92,12 @@ interface FinanceHubApiService {
     @POST("sync/batch/graph-edges")
     suspend fun batchSyncGraphEdges(@Body request: BatchSyncGraphEdgesRequest): Response<BatchSyncResponse>
 
+    @POST("sync/batch/wishlist")
+    suspend fun batchSyncWishlist(@Body request: BatchSyncWishlistRequest): Response<BatchSyncResponse>
+
+    @POST("sync/batch/wishlist-tags")
+    suspend fun batchSyncWishlistTags(@Body request: BatchSyncWishlistTagsRequest): Response<BatchSyncResponse>
+
     // Delta Sync Endpoint
     @GET("sync/updated-data")
     suspend fun getUpdatedData(@Query("since") lastSyncTimestamp: Long): Response<UpdatedDataResponse>

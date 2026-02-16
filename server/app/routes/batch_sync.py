@@ -1,18 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 import time
 from datetime import datetime
 
 from ..database import get_db
-from ..models import Expense, Tag, Target, ExpenseTagsCrossRef, GraphEdge
+from ..models import Expense, Tag, Target, ExpenseTagsCrossRef, GraphEdge, WishlistItem, WishlistTagsCrossRef
 from ..schemas import (
     BatchSyncExpensesRequest, BatchSyncTagsRequest, BatchSyncTargetsRequest,
-    BatchSyncExpenseTagsRequest, BatchSyncGraphEdgesRequest,
+    BatchSyncExpenseTagsRequest, BatchSyncGraphEdgesRequest, BatchSyncWishlistRequest,
     BatchSyncResponse, SyncResultType,
     CreateExpenseBatchRequest, UpdateExpenseBatchRequest, DeleteExpenseBatchRequest,
-    ApiExpense, ApiTag, ApiTarget, ApiExpenseTag, ApiGraphEdge,
-    UpdatedDataResponse
+    ApiExpense, ApiTag, ApiTarget, ApiExpenseTag, ApiGraphEdge, ApiWishlistItem,
+    UpdatedDataResponse, BatchSyncWishlistTagsRequest, ApiWishlistTag
 )
 
 router = APIRouter()
@@ -219,12 +219,47 @@ async def get_updated_data(
             for edge in graph_edges
         ]
         
+        # Query wishlist
+        wishlist_items = db.query(WishlistItem).filter(
+            WishlistItem.updated_at > since_datetime
+        ).all()
+        
+        wishlist_responses = [
+            ApiWishlistItem(
+                id=str(item.id),
+                name=item.name,
+                expectedPrice=item.expected_price,
+                # tagId removed
+                createdAt=int(item.created_at.timestamp() * 1000) if item.created_at else 0,
+                updatedAt=int(item.updated_at.timestamp() * 1000) if item.updated_at else 0
+            )
+            for item in wishlist_items
+        ]
+
+        # Query wishlist tags
+        wishlist_tags = db.query(WishlistTagsCrossRef).filter(
+            WishlistTagsCrossRef.updated_at > since_datetime
+        ).all()
+
+        wishlist_tag_responses = [
+            ApiWishlistTag(
+                id=str(wt.id),
+                wishlistId=str(wt.wishlist_id),
+                tagId=str(wt.tag_id),
+                createdAt=int(wt.created_at.timestamp() * 1000) if wt.created_at else 0,
+                updatedAt=int(wt.updated_at.timestamp() * 1000) if wt.updated_at else 0
+            )
+            for wt in wishlist_tags
+        ]
+        
         return UpdatedDataResponse(
             expenses=expense_responses,
             tags=tag_responses,
             targets=target_responses,
             expense_tags=expense_tag_responses,
-            graph_edges=graph_edge_responses
+            graph_edges=graph_edge_responses,
+            wishlist=wishlist_responses,
+            wishlist_tags=wishlist_tag_responses
         )
         
     except Exception as e:
@@ -553,3 +588,176 @@ async def batch_sync_graph_edges(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/batch/wishlist", response_model=BatchSyncResponse, status_code=status.HTTP_207_MULTI_STATUS)
+async def batch_sync_wishlist(
+    request: BatchSyncWishlistRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Batch sync wishlist items with CREATE/UPDATE/DELETE operations
+    """
+    results: List[SyncResultType] = []
+    
+    try:
+        for operation in request.operations:
+            try:
+                if operation.type == "create_wishlist":
+                    new_item = WishlistItem(
+                        name=operation.name,
+                        expected_price=operation.expected_price,
+                        # tag_id removed
+                        created_at=datetime.utcnow(),
+                        updated_at=datetime.utcnow()
+                    )
+                    db.add(new_item)
+                    db.flush()
+                    
+                    results.append(SyncResultType(
+                        success=True,
+                        client_id=operation.client_id,
+                        server_id=str(new_item.id)
+                    ))
+                    
+                elif operation.type == "update_wishlist":
+                    item = db.query(WishlistItem).filter(WishlistItem.id == operation.server_id).first()
+                    if item:
+                        item.name = operation.name
+                        item.expected_price = operation.expected_price
+                        # tag_id removed
+                        item.updated_at = datetime.utcnow()
+                        
+                        results.append(SyncResultType(
+                            success=True,
+                            client_id=None,
+                            server_id=operation.server_id
+                        ))
+                    else:
+                        results.append(SyncResultType(
+                            success=False,
+                            client_id=None,
+                            server_id=operation.server_id,
+                            error="WishlistItem not found"
+                        ))
+                        
+                elif operation.type == "delete_wishlist":
+                    item = db.query(WishlistItem).filter(WishlistItem.id == operation.server_id).first()
+                    if item:
+                        db.delete(item)
+                        
+                        results.append(SyncResultType(
+                            success=True,
+                            client_id=None,
+                            server_id=operation.server_id
+                        ))
+                    else:
+                        # If already deleted, consider success
+                        results.append(SyncResultType(
+                            success=True,
+                            client_id=None,
+                            server_id=operation.server_id,
+                            message="WishlistItem already deleted or not found"
+                        ))
+                        
+            except Exception as e:
+                results.append(SyncResultType(
+                    success=False,
+                    client_id=getattr(operation, 'client_id', None),
+                    server_id=getattr(operation, 'server_id', None),
+                    error=str(e)
+                ))
+        
+        db.commit()
+        return BatchSyncResponse(results=results)
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/batch/wishlist-tags", response_model=BatchSyncResponse, status_code=status.HTTP_207_MULTI_STATUS)
+async def batch_sync_wishlist_tags(
+    request: BatchSyncWishlistTagsRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Batch sync wishlist-tag relationships
+    """
+    results: List[SyncResultType] = []
+    
+    try:
+        for operation in request.operations:
+            try:
+                if operation.type == "create_wishlist_tag":
+                    # Check duplication
+                    existing = db.query(WishlistTagsCrossRef).filter(
+                        WishlistTagsCrossRef.wishlist_id == operation.wishlist_id,
+                        WishlistTagsCrossRef.tag_id == operation.tag_id
+                    ).first()
+                    
+                    if existing:
+                         results.append(SyncResultType(
+                            success=True,
+                            client_id=operation.client_id,
+                            server_id=str(existing.id),
+                            message="Relationship already exists"
+                        ))
+                         continue
+
+                    new_rel = WishlistTagsCrossRef(
+                        wishlist_id=operation.wishlist_id,
+                        tag_id=operation.tag_id,
+                        created_at=datetime.utcnow(),
+                        updated_at=datetime.utcnow()
+                    )
+                    db.add(new_rel)
+                    db.flush()
+                    
+                    results.append(SyncResultType(
+                        success=True,
+                        client_id=operation.client_id,
+                        server_id=str(new_rel.id)
+                    ))
+                    
+                elif operation.type == "delete_wishlist_tag":
+                    rel = None
+                    if operation.server_id:
+                        rel = db.query(WishlistTagsCrossRef).filter(WishlistTagsCrossRef.id == operation.server_id).first()
+                    elif operation.wishlist_id and operation.tag_id:
+                        rel = db.query(WishlistTagsCrossRef).filter(
+                            WishlistTagsCrossRef.wishlist_id == operation.wishlist_id,
+                            WishlistTagsCrossRef.tag_id == operation.tag_id
+                        ).first()
+
+                    if rel:
+                        db.delete(rel)
+                        results.append(SyncResultType(
+                            success=True,
+                            client_id=None,
+                            server_id=operation.server_id
+                        ))
+                    else:
+                         # If already deleted, consider success
+                        results.append(SyncResultType(
+                            success=True,
+                            client_id=None,
+                            server_id=operation.server_id,
+                            message="Relationship not found or already deleted"
+                        ))
+                        
+            except Exception as e:
+                results.append(SyncResultType(
+                    success=False,
+                    client_id=getattr(operation, 'client_id', None),
+                    server_id=getattr(operation, 'server_id', None),
+                    error=str(e)
+                ))
+        
+        db.commit()
+        return BatchSyncResponse(results=results)
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+

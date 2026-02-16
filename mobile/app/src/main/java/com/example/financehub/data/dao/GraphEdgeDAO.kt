@@ -22,6 +22,12 @@ interface GraphEdgeDAO {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertGraphEdge(graphEdge: GraphEdge)
 
+    @Query("SELECT * FROM graph_edges WHERE fromTagId = :fromTagId AND toTagId = :toTagId LIMIT 1")
+    suspend fun getGraphEdgeByTagIds(fromTagId: Int, toTagId: Int): GraphEdge?
+
+    @Query("UPDATE graph_edges SET weight = :weight, updatedAt = :updatedAt WHERE fromTagId = :fromTagId AND toTagId = :toTagId")
+    suspend fun updateGraphEdgeWeight(fromTagId: Int, toTagId: Int, weight: Int, updatedAt: Long)
+
     @Query("""
         UPDATE graph_edges 
         SET serverId = :serverId, lastSyncedAt = :lastSyncedAt, pendingSync = :pendingSync, syncOperation = :syncOperation

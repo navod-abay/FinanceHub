@@ -90,4 +90,6 @@ interface TagsDao {
     @Query("DELETE FROM tags WHERE syncCreatedAt < :cutoffTime")
     suspend fun deleteOldTags(cutoffTime: Long)
 
+    @Query("SELECT * FROM tags WHERE tagID = :tagId")
+    suspend fun getTagById(tagId: Int): Tags?
 }

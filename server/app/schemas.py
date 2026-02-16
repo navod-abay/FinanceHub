@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from typing import List, Optional, Union, Literal, Annotated
 from pydantic import Discriminator
 
@@ -358,12 +358,134 @@ class ApiGraphEdge(BaseModel):
     updated_at: int = Field(..., alias="updatedAt")
 
 # Updated data response for delta sync
+# Wishlist Models
+# Wishlist Models
+class WishlistItemBase(BaseModel):
+    name: str
+    expected_price: int = Field(alias="expectedPrice")
+    # tag_id removed
+
+    class Config:
+        populate_by_name = True
+
+class WishlistItemCreate(WishlistItemBase):
+    pass
+
+class ApiWishlistItem(WishlistItemBase):
+    id: str
+    created_at: int = Field(alias="createdAt")
+    updated_at: int = Field(alias="updatedAt")
+
+    class Config:
+        orm_mode = True
+        populate_by_name = True
+        
+    @validator("created_at", "updated_at", pre=True)
+    def convert_datetime(cls, v):
+        from datetime import datetime
+        if isinstance(v, datetime):
+            return int(v.timestamp() * 1000)
+        return v
+
+# Wishlist Tag Models for Sync Response
+class ApiWishlistTag(BaseModel):
+    id: str
+    wishlist_id: str = Field(alias="wishlistId")
+    tag_id: str = Field(alias="tagId")
+    created_at: int = Field(alias="createdAt")
+    updated_at: int = Field(alias="updatedAt")
+
+    class Config:
+        orm_mode = True
+        populate_by_name = True
+
+    @validator("created_at", "updated_at", pre=True)
+    def convert_datetime(cls, v):
+        from datetime import datetime
+        if isinstance(v, datetime):
+            return int(v.timestamp() * 1000)
+        return v
+
+# Batch Sync Operations
+
+class CreateWishlistBatchRequest(BaseModel):
+    type: Literal["create_wishlist"]
+    name: str
+    expected_price: int = Field(..., alias="expectedPrice")
+    client_id: str = Field(..., alias="clientId")
+    
+    class Config:
+        populate_by_name = True
+
+class UpdateWishlistBatchRequest(BaseModel):
+    type: Literal["update_wishlist"]
+    server_id: str = Field(..., alias="serverId")
+    name: str
+    expected_price: int = Field(..., alias="expectedPrice")
+    
+    class Config:
+        populate_by_name = True
+
+class DeleteWishlistBatchRequest(BaseModel):
+    type: Literal["delete_wishlist"]
+    server_id: str = Field(..., alias="serverId")
+    
+    class Config:
+        populate_by_name = True
+
+WishlistOperation = Annotated[
+    Union[CreateWishlistBatchRequest, UpdateWishlistBatchRequest, DeleteWishlistBatchRequest],
+    Field(discriminator='type')
+]
+
+class BatchSyncWishlistRequest(BaseModel):
+    operations: List[WishlistOperation]
+    
+    class Config:
+        populate_by_name = True
+
+# Wishlist Tags Batch Operations
+
+class CreateWishlistTagBatchRequest(BaseModel):
+    type: Literal["create_wishlist_tag"]
+    wishlist_id: str = Field(..., alias="wishlistId")
+    tag_id: str = Field(..., alias="tagId")
+    client_id: str = Field(..., alias="clientId")
+
+    class Config:
+        populate_by_name = True
+
+class DeleteWishlistTagBatchRequest(BaseModel):
+    type: Literal["delete_wishlist_tag"]
+    server_id: Optional[str] = Field(None, alias="serverId")
+    # Also support delete by composite key if needed, or enforce serverId?
+    # Usually easier to delete by ID if tracked, or composite.
+    # We'll support both in logic, but here schema just needs what we allow.
+    wishlist_id: Optional[str] = Field(None, alias="wishlistId")
+    tag_id: Optional[str] = Field(None, alias="tagId")
+
+    class Config:
+        populate_by_name = True
+
+WishlistTagOperation = Annotated[
+    Union[CreateWishlistTagBatchRequest, DeleteWishlistTagBatchRequest],
+    Field(discriminator='type')
+]
+
+class BatchSyncWishlistTagsRequest(BaseModel):
+    operations: List[WishlistTagOperation]
+    
+    class Config:
+        populate_by_name = True
+
 class UpdatedDataResponse(BaseModel):
     expenses: List[ApiExpense] = []
     tags: List[ApiTag] = []
     targets: List[ApiTarget] = []
     expense_tags: List[ApiExpenseTag] = Field([], alias="expenseTags")
     graph_edges: List[ApiGraphEdge] = Field([], alias="graphEdges")
+    wishlist: List[ApiWishlistItem] = Field([], alias="wishlist")
+    wishlist_tags: List[ApiWishlistTag] = Field([], alias="wishlistTags")
 
     class Config:
         orm_mode = True

@@ -8,6 +8,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.financehub.data.database.AppDatabase
 import com.example.financehub.data.repository.ExpenseRepository
+import com.example.financehub.data.repository.WishlistRepository
 import com.example.financehub.network.ApiServiceFactory
 import com.example.financehub.sync.SyncManager
 import com.example.financehub.ui.HomeScreen
@@ -21,7 +22,10 @@ import com.example.financehub.viewmodel.ExpenseViewModel
 import com.example.financehub.viewmodel.HomeScreenViewModel
 import com.example.financehub.viewmodel.TagsViewModel
 import com.example.financehub.viewmodel.TransactionsViewModel
+
 import com.example.financehub.viewmodel.TargetsViewModel
+import com.example.financehub.viewmodel.WishlistViewModel
+import com.example.financehub.ui.WishlistScreen
 
 @Composable
 fun NavGraph(navController: NavHostController) {
@@ -42,12 +46,17 @@ fun NavGraph(navController: NavHostController) {
         )
     }
 
+    val wishlistRepository by lazy {
+        WishlistRepository(database.wishlistDao(), database.wishlistTagsDao(), syncManager)
+    }
+
     val expenseViewModel by lazy { ExpenseViewModel(repository) }
     val homeScreenViewModel by lazy { HomeScreenViewModel(repository) }
     val transactionsViewModel by lazy { TransactionsViewModel(repository) }
     val analyticsViewModel by lazy { AnalyticsViewModel(repository) }
     val tagsViewModel by lazy { TagsViewModel(repository) }
     val targetViewModel by lazy { TargetsViewModel(repository) }
+    val wishlistViewModel by lazy { WishlistViewModel(wishlistRepository, database.tagsDao()) }
 
     NavHost(
         navController = navController,
@@ -74,6 +83,9 @@ fun NavGraph(navController: NavHostController) {
         }
         composable(route = Screens.Analysis.route) {
             ExpenseAnalyticsScreen(navController = navController, viewModel = analyticsViewModel)
+        }
+        composable(route = Screens.Wishlist.route) {
+            WishlistScreen(navController = navController, viewModel = wishlistViewModel)
         }
     }
 }

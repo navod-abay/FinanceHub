@@ -11,9 +11,13 @@ import com.example.financehub.data.dao.GraphEdgeDAO
 import com.example.financehub.data.dao.TagRefDao
 import com.example.financehub.data.dao.TagsDao
 import com.example.financehub.data.dao.TargetDao
+import com.example.financehub.data.dao.WishlistDao
+import com.example.financehub.data.dao.WishlistTagsDao
+import com.example.financehub.data.database.WishlistTagsCrossRef
+import com.example.financehub.data.database.Wishlist
 
 
-@Database(entities = [Expense::class, Tags::class, ExpenseTagsCrossRef::class, Target::class, GraphEdge::class], version = 11)
+@Database(entities = [Expense::class, Tags::class, ExpenseTagsCrossRef::class, Target::class, GraphEdge::class, Wishlist::class, WishlistTagsCrossRef::class], version = 13)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao
     abstract fun tagsDao(): TagsDao
@@ -21,6 +25,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun targetDao(): TargetDao
     abstract fun graphEdgeDAO(): GraphEdgeDAO
     abstract fun TagRefDao(): TagRefDao
+    abstract fun wishlistDao(): WishlistDao
+    abstract fun wishlistTagsDao(): WishlistTagsDao
 
     companion object {
         @Volatile
@@ -32,7 +38,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "expense_database"
-                ).addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                ).addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
@@ -127,6 +133,47 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // No schema changes needed - this migration is just to update the version number
                 // to match the current schema with serverId fields already added in migration 8->9
+            }
+        }
+
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Empty migration to match version 11 if needed
+            }
+        }
+
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `wishlist` (
+                        `id` TEXT NOT NULL, 
+                        `name` TEXT NOT NULL, 
+                        `expectedPrice` INTEGER NOT NULL, 
+                        `tagID` INTEGER, 
+                        `serverId` TEXT, 
+                        `lastSyncedAt` INTEGER, 
+                        `pendingSync` INTEGER NOT NULL DEFAULT 0, 
+                        `syncOperation` TEXT, 
+                        `createdAt` INTEGER NOT NULL DEFAULT 0, 
+                        `updatedAt` INTEGER NOT NULL DEFAULT 0, 
+                        PRIMARY KEY(`id`), 
+                        FOREIGN KEY(`tagID`) REFERENCES `tags`(`tagID`) ON UPDATE NO ACTION ON DELETE SET NULL
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_wishlist_tagID` ON `wishlist` (`tagID`)")
+            }
+        }
+
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Drop old table and recreate to remove tagID
+                database.execSQL("DROP TABLE IF EXISTS `wishlist`")
+                database.execSQL("CREATE TABLE IF NOT EXISTS `wishlist` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `expectedPrice` INTEGER NOT NULL, `serverId` TEXT, `lastSyncedAt` INTEGER, `pendingSync` INTEGER NOT NULL, `syncOperation` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                
+                // Create wishlist_tags table
+                database.execSQL("CREATE TABLE IF NOT EXISTS `wishlist_tags` (`wishlistId` TEXT NOT NULL, `tagID` INTEGER NOT NULL, `id` TEXT NOT NULL, `serverId` TEXT, `lastSyncedAt` INTEGER, `pendingSync` INTEGER NOT NULL, `syncOperation` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`wishlistId`, `tagID`), FOREIGN KEY(`wishlistId`) REFERENCES `wishlist`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`tagID`) REFERENCES `tags`(`tagID`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_wishlist_tags_wishlistId` ON `wishlist_tags` (`wishlistId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_wishlist_tags_tagID` ON `wishlist_tags` (`tagID`)")
             }
         }
     }

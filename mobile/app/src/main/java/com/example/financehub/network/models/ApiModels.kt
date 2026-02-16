@@ -324,6 +324,68 @@ data class DeleteGraphEdgeBatchRequest(
     val serverId: String
 ) : GraphEdgeOperation
 
+@Serializable
+sealed interface WishlistTagOperation {
+    val type: String
+    val wishlistId: String
+    val tagId: String
+}
+
+@Serializable
+@SerialName("create_wishlist_tag")
+data class CreateWishlistTagBatchRequest(
+    override val type: String = "create_wishlist_tag",
+    override val wishlistId: String,
+    override val tagId: String,
+    val clientId: String
+) : WishlistTagOperation
+
+@Serializable
+@SerialName("delete_wishlist_tag")
+data class DeleteWishlistTagBatchRequest(
+    override val type: String = "delete_wishlist_tag",
+    override val wishlistId: String,
+    override val tagId: String,
+    val serverId: String? = null
+) : WishlistTagOperation
+
+@Serializable
+data class BatchSyncWishlistTagsRequest(
+    val operations: List<WishlistTagOperation>
+)
+
+@Serializable
+sealed interface WishlistOperation {
+    val type: String
+}
+
+@Serializable
+@SerialName("create_wishlist")
+data class CreateWishlistBatchRequest(
+    override val type: String = "create_wishlist",
+    val name: String,
+    val expectedPrice: Int,
+    val clientId: String
+    // tagId removed
+) : WishlistOperation
+
+@Serializable
+@SerialName("update_wishlist")
+data class UpdateWishlistBatchRequest(
+    override val type: String = "update_wishlist",
+    val serverId: String,
+    val name: String? = null,
+    val expectedPrice: Int? = null
+    // tagId removed
+) : WishlistOperation
+
+@Serializable
+@SerialName("delete_wishlist")
+data class DeleteWishlistBatchRequest(
+    override val type: String = "delete_wishlist",
+    val serverId: String
+) : WishlistOperation
+
 // Batch request wrappers
 @Serializable
 data class BatchSyncExpensesRequest(
@@ -348,6 +410,11 @@ data class BatchSyncExpenseTagsRequest(
 @Serializable
 data class BatchSyncGraphEdgesRequest(
     val operations: List<GraphEdgeOperation>
+)
+
+@Serializable
+data class BatchSyncWishlistRequest(
+    val operations: List<WishlistOperation>
 )
 
 // Batch sync result type
@@ -423,6 +490,25 @@ data class ApiGraphEdge(
     val updatedAt: Long
 )
 
+@Serializable
+data class ApiWishlistItem(
+    val id: String,
+    val name: String,
+    val expectedPrice: Int,
+    // tagId removed
+    val createdAt: Long,
+    val updatedAt: Long
+)
+
+@Serializable
+data class ApiWishlistTag(
+    val id: String,
+    val wishlistId: String,
+    val tagId: String,
+    val createdAt: Long,
+    val updatedAt: Long
+)
+
 // Updated data response for delta sync
 @Serializable
 data class UpdatedDataResponse(
@@ -430,5 +516,7 @@ data class UpdatedDataResponse(
     val tags: List<ApiTag> = emptyList(),
     val targets: List<ApiTarget> = emptyList(),
     val expenseTags: List<ApiExpenseTag> = emptyList(),
-    val graphEdges: List<ApiGraphEdge> = emptyList()
+    val graphEdges: List<ApiGraphEdge> = emptyList(),
+    val wishlist: List<ApiWishlistItem> = emptyList(),
+    val wishlistTags: List<ApiWishlistTag> = emptyList()
 )

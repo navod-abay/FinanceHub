@@ -34,6 +34,17 @@ import com.example.financehub.network.models.UpdateExpenseBatchRequest
 import com.example.financehub.network.models.UpdateGraphEdgeBatchRequest
 import com.example.financehub.network.models.UpdateTagBatchRequest
 import com.example.financehub.network.models.UpdateTargetBatchRequest
+import com.example.financehub.data.database.Wishlist
+import com.example.financehub.network.models.ApiWishlistItem
+import com.example.financehub.network.models.BatchSyncWishlistRequest
+import com.example.financehub.network.models.CreateWishlistBatchRequest
+import com.example.financehub.network.models.UpdateWishlistBatchRequest
+import com.example.financehub.network.models.DeleteWishlistBatchRequest
+import com.example.financehub.network.models.ApiWishlistTag
+import com.example.financehub.network.models.BatchSyncWishlistTagsRequest
+import com.example.financehub.network.models.CreateWishlistTagBatchRequest
+import com.example.financehub.network.models.DeleteWishlistTagBatchRequest
+import com.example.financehub.data.database.WishlistTagsCrossRef
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -146,6 +157,14 @@ class SyncManager constructor(
             val pendingGraphEdges = database.graphEdgeDAO().getPendingSyncGraphEdges()
             pushGraphEdgesToServer(pendingGraphEdges)
 
+            // Push wishlist
+            val pendingWishlist = database.wishlistDao().getPendingSyncWishlist()
+            pushWishlistToServer(pendingWishlist)
+
+            // Push wishlist tags
+            val pendingWishlistTags = database.wishlistTagsDao().getPendingSyncWishlistTags()
+            pushWishlistTagsToServer(pendingWishlistTags)
+
             return SyncResult.success("Local changes pushed successfully")
 
         } catch (e: Exception) {
@@ -175,6 +194,8 @@ class SyncManager constructor(
                     applyServerTargets(serverData.targets)
                     applyServerExpenseTags(serverData.expenseTags)
                     applyServerGraphEdges(serverData.graphEdges)
+                    applyServerWishlist(serverData.wishlist)
+                    applyServerWishlistTags(serverData.wishlistTags)
 
                     // Update last sync timestamp
                     updateLastSyncTimestamp(System.currentTimeMillis())
@@ -737,6 +758,205 @@ class SyncManager constructor(
     }
 
     /**
+     * Push wishlist items to server in batches
+     */
+    private suspend fun pushWishlistToServer(items: List<Wishlist>) {
+        items.chunked(MAX_BATCH_SIZE).forEach { batch ->
+            val operations = batch.map { item ->
+                when (item.syncOperation) {
+                    "CREATE" -> CreateWishlistBatchRequest(
+                        name = item.name,
+                        expectedPrice = item.expectedPrice,
+                        clientId = item.id
+                    )
+                    "UPDATE" -> UpdateWishlistBatchRequest(
+                        serverId = item.serverId!!,
+                        name = item.name,
+                        expectedPrice = item.expectedPrice
+                    )
+                    "DELETE" -> DeleteWishlistBatchRequest(
+                        serverId = item.serverId!!
+                    )
+                    else -> null
+                }
+            }.filterNotNull()
+
+            val response = apiService.batchSyncWishlist(BatchSyncWishlistRequest(operations))
+            if (response.isSuccessful) {
+                val responseBody = response.body()
+                if (responseBody != null) {
+                    responseBody.results.forEach { syncResult: SyncResultType ->
+                        if (syncResult.success) {
+                            val localItem = batch.find { it.id == syncResult.clientId }
+                            localItem?.let { item ->
+                                database.wishlistDao().updateSyncMetadata(
+                                    id = item.id,
+                                    serverId = syncResult.serverId,
+                                    lastSyncedAt = System.currentTimeMillis(),
+                                    pendingSync = false,
+                                    syncOperation = null
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Apply server wishlist items with client-authoritative conflict resolution
+     */
+    private suspend fun applyServerWishlist(serverItems: List<ApiWishlistItem>) {
+        serverItems.forEach { serverItem ->
+            val localItem = database.wishlistDao().getWishlistItemByServerId(serverItem.id)
+            
+            if (localItem == null) {
+                val newItem = Wishlist(
+                    id = java.util.UUID.randomUUID().toString(),
+                    name = serverItem.name,
+                    expectedPrice = serverItem.expectedPrice,
+                    // tagID removed
+                    serverId = serverItem.id,
+                    lastSyncedAt = System.currentTimeMillis(),
+                    pendingSync = false,
+                    syncOperation = null,
+                    createdAt = serverItem.createdAt,
+                    updatedAt = serverItem.updatedAt
+                )
+                database.wishlistDao().insertWishlist(newItem)
+            } else {
+                if (localItem.pendingSync) {
+                    database.wishlistDao().updateSyncMetadata(
+                        id = localItem.id,
+                        serverId = localItem.serverId,
+                        lastSyncedAt = localItem.lastSyncedAt ?: 0,
+                        pendingSync = true,
+                        syncOperation = localItem.syncOperation
+                    )
+                } else if (serverItem.updatedAt > localItem.updatedAt) {
+                    database.wishlistDao().updateFromServer(
+                        id = localItem.id,
+                        name = serverItem.name,
+                        expectedPrice = serverItem.expectedPrice,
+                        // tagId removed
+                        updatedAt = serverItem.updatedAt,
+                        lastSyncedAt = System.currentTimeMillis()
+                    )
+                } else {
+                    database.wishlistDao().updateSyncMetadata(
+                        id = localItem.id,
+                        serverId = localItem.serverId,
+                        lastSyncedAt = System.currentTimeMillis(),
+                        pendingSync = false,
+                        syncOperation = null
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Push wishlist tags to server
+     */
+    private suspend fun pushWishlistTagsToServer(items: List<WishlistTagsCrossRef>) {
+        items.chunked(MAX_BATCH_SIZE).forEach { batch ->
+            val operations = batch.map { item ->
+                when (item.syncOperation) {
+                    "CREATE" -> CreateWishlistTagBatchRequest(
+                        wishlistId = item.wishlistId,
+                        tagId = item.tagID.toString(),
+                        clientId = item.id
+                    )
+                    "DELETE" -> DeleteWishlistTagBatchRequest(
+                        wishlistId = item.wishlistId,
+                        tagId = item.tagID.toString(),
+                        serverId = item.serverId
+                    )
+                    else -> null
+                }
+            }.filterNotNull()
+
+            if (operations.isNotEmpty()) {
+                val response = apiService.batchSyncWishlistTags(BatchSyncWishlistTagsRequest(operations))
+                if (response.isSuccessful) {
+                    val responseBody = response.body()
+                    if (responseBody != null) {
+                        responseBody.results.forEach { syncResult: SyncResultType ->
+                            if (syncResult.success) {
+                                val localItem = batch.find { it.id == syncResult.clientId || (syncResult.clientId == null && it.serverId == syncResult.serverId) }
+                                localItem?.let { item ->
+                                    if (item.syncOperation == "DELETE") {
+                                         // If deleted successfully, we can remove it from DB fully or keep as soft delete?
+                                         // For cross-refs, usually hard delete locally if server confirmed?
+                                         // Logic: item is already deleted locally? No, if it was pending sync "DELETE", it exists in DB.
+                                         database.wishlistTagsDao().deleteWishlistTag(item)
+                                    } else {
+                                        database.wishlistTagsDao().updateSyncMetadata(
+                                            id = item.id,
+                                            serverId = syncResult.serverId,
+                                            lastSyncedAt = System.currentTimeMillis(),
+                                            pendingSync = false,
+                                            syncOperation = null
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Apply server wishlist tags
+     */
+    private suspend fun applyServerWishlistTags(serverItems: List<ApiWishlistTag>) {
+        serverItems.forEach { serverItem ->
+            val localItem = database.wishlistTagsDao().getWishlistTagByServerId(serverItem.id)
+            
+            if (localItem == null) {
+                // Check if relationship exists by composite key
+                val existing = database.wishlistTagsDao().getWishlistTag(serverItem.wishlistId, serverItem.tagId.toInt())
+                if (existing == null) {
+                     val newItem = WishlistTagsCrossRef(
+                        wishlistId = serverItem.wishlistId,
+                        tagID = serverItem.tagId.toInt(),
+                        serverId = serverItem.id,
+                        lastSyncedAt = System.currentTimeMillis(),
+                        pendingSync = false,
+                        syncOperation = null,
+                        createdAt = serverItem.createdAt,
+                        updatedAt = serverItem.updatedAt
+                    )
+                    database.wishlistTagsDao().insertWishlistTag(newItem)
+                } else {
+                    // Update existing mapping with server ID
+                     database.wishlistTagsDao().updateSyncMetadata(
+                        id = existing.id,
+                        serverId = serverItem.id,
+                        lastSyncedAt = System.currentTimeMillis(),
+                        pendingSync = false,
+                        syncOperation = null
+                    )
+                }
+            } else {
+                 if (!localItem.pendingSync) {
+                      // Update metadata
+                      database.wishlistTagsDao().updateSyncMetadata(
+                        id = localItem.id,
+                        serverId = serverItem.id,
+                        lastSyncedAt = System.currentTimeMillis(),
+                        pendingSync = false,
+                        syncOperation = null
+                    )
+                 }
+            }
+        }
+    }
+
+    /**
      * Clean up data older than 3 months
      */
     private suspend fun cleanupOldData() {
@@ -747,6 +967,7 @@ class SyncManager constructor(
         database.targetDao().deleteOldTargets(threeMonthsAgo)
         database.expenseTagsCrossRefDao().deleteOldExpenseTags(threeMonthsAgo)
         database.graphEdgeDAO().deleteOldGraphEdges(threeMonthsAgo)
+        database.wishlistDao().deleteOldWishlist(threeMonthsAgo)
     }
 
     /**
@@ -787,6 +1008,18 @@ class SyncManager constructor(
             SyncEntityType.GRAPH_EDGE -> {
                 val parts = entityId.split("-")
                 database.graphEdgeDAO().markForSync(parts[0].toInt(), parts[1].toInt(), operation.name, System.currentTimeMillis())
+            }
+            SyncEntityType.WISHLIST -> {
+                database.wishlistDao().markForSync(entityId, operation.name, System.currentTimeMillis())
+            }
+            SyncEntityType.WISHLIST_TAG -> {
+                 // Format: wishlistId-tagId
+                 val parts = entityId.split("-")
+                 if (parts.size >= 2) {
+                     val wishlistId = parts[0]
+                     val tagId = parts[1].toInt()
+                     database.wishlistTagsDao().markForSync(wishlistId, tagId, operation.name, System.currentTimeMillis())
+                 }
             }
         }
     }
@@ -833,7 +1066,9 @@ enum class SyncEntityType {
     TAG,
     TARGET,
     EXPENSE_TAG,
-    GRAPH_EDGE
+    GRAPH_EDGE,
+    WISHLIST,
+    WISHLIST_TAG
 }
 
 /**

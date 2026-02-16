@@ -147,6 +147,10 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
         }
     }
 
+    fun removeRecommendation(tag: TagRef) {
+        _reccommendedTags.value = _reccommendedTags.value.filter { it.tagID != tag.tagID }
+    }
+
     /**
      * Clear operation result message
      */

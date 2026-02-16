@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.navigation.NavController
@@ -24,9 +23,7 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import com.example.financehub.data.database.Tags
 import com.example.financehub.data.database.models.TagRef
-import com.example.financehub.ui.TargetForm
 
 
 @Composable
@@ -334,6 +331,9 @@ fun ExpenseForm(
                                     // When clicking on a reccommended tag, add it to selected tags
                                     if (tag !in selectedTags) {
                                         selectedTags = selectedTags +  tag
+                                        reccommendedTags.filter { it.tagID != tag.tagID}.forEach {
+                                            viewModel.removeRecommendation(it)
+                                        }
                                     }
                                 },
                                 label = { Text(tag.tag) }
@@ -354,7 +354,11 @@ fun ExpenseForm(
                         showTagDialog = false
                     }
                 ) {
-                    Text("Add")
+                    if(newTagText.isNotBlank()) {
+                        Text("Add")
+                    } else {
+                        Text("Done")
+                    }
                 }
             },
             dismissButton = {

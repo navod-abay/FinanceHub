@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -55,7 +56,11 @@ fun NavBar(navController: NavController) {
             name = stringResource(id = R.string.analysis),
             route = Screens.Analysis.route,
             icon = Icons.Filled.BarChart
-
+        ),
+        BottomNavItem(
+            name = "Wishlist",
+            route = Screens.Wishlist.route,
+            icon = Icons.Filled.Star
         )
     )
     NavigationBar(

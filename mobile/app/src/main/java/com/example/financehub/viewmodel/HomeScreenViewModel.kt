@@ -1,6 +1,7 @@
 package com.example.financehub.viewmodel
 
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.financehub.data.database.TagWithAmount
@@ -65,6 +66,7 @@ class HomeScreenViewModel(
             }.map { (total, topTag) ->
                 _monthlyTotal.value = total
                 _highestTag.value = TagWithAmount(topTag.tag, 0)
+                Log.d("HomeScreenViewModel", "Total: $total, Top Tag: ${topTag.tag}")
             }.collect {}
         }
         viewModelScope.launch {
