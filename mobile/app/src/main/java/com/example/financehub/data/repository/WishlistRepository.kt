@@ -18,19 +18,17 @@ class WishlistRepository(
 ) {
     val allWishlistItems: Flow<List<WishlistWithTags>> = wishlistDao.getAllWishlistItems()
 
-    suspend fun addWishlistItem(name: String, expectedPrice: Int, tagIds: List<Int>) {
-        val wishlistId = UUID.randomUUID().toString()
+    suspend fun addWishlistItem(name: String, minPrice: Int, maxPrice: Int, tagIds: List<Int>) {
         val newItem = Wishlist(
-            id = wishlistId,
             name = name,
-            expectedPrice = expectedPrice,
-            // tagID removed
+            minPrice = minPrice,
+            maxPrice = maxPrice,
             pendingSync = true,
             syncOperation = "CREATE",
             updatedAt = System.currentTimeMillis(),
             createdAt = System.currentTimeMillis()
         )
-        wishlistDao.insertWishlist(newItem)
+        val wishlistId = wishlistDao.insertWishlist(newItem).toInt()
         
         // Add tags
         tagIds.forEach { tagId ->

@@ -12,12 +12,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -33,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.financehub.R
+import com.example.financehub.data.repository.SyncRepositoryState
 import com.example.financehub.ui.components.NavBar
 import com.example.financehub.ui.sync.SyncStatusIndicator
 import com.example.financehub.viewmodel.HomeScreenViewModel
@@ -54,9 +62,12 @@ fun HomeScreen(navController: NavController, viewModel: HomeScreenViewModel) {
             Spacer(Modifier.height(8.dp))
             // Add sync status indicator
             SyncStatusIndicator(
-                compact = true,
+                compact = false,
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
+            Spacer(Modifier.height(8.dp))
+            // Add sync button
+            SyncButton(viewModel = viewModel)
             Spacer(Modifier.height(16.dp))
             TotalExpenditure(navController, viewModel = viewModel)
             Spacer(Modifier.height(16.dp))
@@ -163,5 +174,36 @@ fun TotalExpenditure(navController: NavController, viewModel: HomeScreenViewMode
                 fontWeight = FontWeight.Bold
             )
         }
+    }
+}
+
+@Composable
+fun SyncButton(viewModel: HomeScreenViewModel) {
+    val syncState by viewModel.syncState.collectAsState()
+    val isSyncing = syncState == SyncRepositoryState.SYNCING
+
+    Button(
+        onClick = { viewModel.triggerSync() },
+        enabled = !isSyncing,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .height(48.dp)
+    ) {
+        if (isSyncing) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.onPrimary
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+        Icon(
+            imageVector = Icons.Default.Sync,
+            contentDescription = "Sync",
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(if (isSyncing) "Syncing..." else "Force Sync")
     }
 }

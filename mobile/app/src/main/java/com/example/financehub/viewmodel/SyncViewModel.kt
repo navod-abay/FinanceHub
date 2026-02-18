@@ -37,15 +37,13 @@ class SyncViewModel(
     // Combined sync status for UI
     val syncStatus: StateFlow<SyncStatus> = combine(
         syncState,
-        ConnectivityState.isConnectedToHomeWifi,
         ConnectivityState.isServerReachable,
         repository.hasPendingSync,
         syncProgress
-    ) { state, isConnectedToHomeWifi, isServerReachable, pending, progress ->
+    ) { state,  isServerReachable, pending, progress ->
         when {
             state == SyncRepositoryState.SYNCING -> SyncStatus.Syncing(progress.stage)
             state == SyncRepositoryState.ERROR -> SyncStatus.Error("Sync failed")
-            !isConnectedToHomeWifi || !isServerReachable -> SyncStatus.Offline
             pending -> SyncStatus.PendingSync
             else -> SyncStatus.UpToDate
         }

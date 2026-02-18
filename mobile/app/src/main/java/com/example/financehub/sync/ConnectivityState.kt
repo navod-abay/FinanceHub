@@ -11,10 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * Global state manager for network connectivity and sync status
  */
 object ConnectivityState {
-    
-    // WiFi connection state
-    private val _isConnectedToHomeWifi = MutableStateFlow(false)
-    val isConnectedToHomeWifi: StateFlow<Boolean> = _isConnectedToHomeWifi.asStateFlow()
+
     
     // Server connectivity state
     private val _isServerReachable = MutableStateFlow(false)
@@ -32,16 +29,7 @@ object ConnectivityState {
     private val _pendingSyncCount = MutableStateFlow(0)
     val pendingSyncCount: StateFlow<Int> = _pendingSyncCount.asStateFlow()
     
-    /**
-     * Update WiFi connection state
-     */
-    fun updateWifiState(isConnected: Boolean) {
-        _isConnectedToHomeWifi.value = isConnected
-        if (!isConnected) {
-            // If WiFi is disconnected, server is also unreachable
-            _isServerReachable.value = false
-        }
-    }
+
     
     /**
      * Update server reachability state
@@ -75,9 +63,8 @@ object ConnectivityState {
      * Check if sync is possible (both WiFi and server are available)
      */
     fun canSync(): Boolean {
-        return isConnectedToHomeWifi.value && isServerReachable.value && syncStatus.value != SyncStatus.SYNCING
+        return  isServerReachable.value && syncStatus.value != SyncStatus.SYNCING
     }
-    
     /**
      * Get last sync timestamp from SharedPreferences
      */

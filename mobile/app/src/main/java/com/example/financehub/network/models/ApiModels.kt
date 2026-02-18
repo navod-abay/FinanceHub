@@ -327,7 +327,7 @@ data class DeleteGraphEdgeBatchRequest(
 @Serializable
 sealed interface WishlistTagOperation {
     val type: String
-    val wishlistId: String
+    val wishlistId: Int
     val tagId: String
 }
 
@@ -335,7 +335,7 @@ sealed interface WishlistTagOperation {
 @SerialName("create_wishlist_tag")
 data class CreateWishlistTagBatchRequest(
     override val type: String = "create_wishlist_tag",
-    override val wishlistId: String,
+    override val wishlistId: Int,
     override val tagId: String,
     val clientId: String
 ) : WishlistTagOperation
@@ -344,7 +344,7 @@ data class CreateWishlistTagBatchRequest(
 @SerialName("delete_wishlist_tag")
 data class DeleteWishlistTagBatchRequest(
     override val type: String = "delete_wishlist_tag",
-    override val wishlistId: String,
+    override val wishlistId: Int,
     override val tagId: String,
     val serverId: String? = null
 ) : WishlistTagOperation
@@ -364,7 +364,8 @@ sealed interface WishlistOperation {
 data class CreateWishlistBatchRequest(
     override val type: String = "create_wishlist",
     val name: String,
-    val expectedPrice: Int,
+    val minPrice: Int? = null,
+    val maxPrice: Int? = null,
     val clientId: String
     // tagId removed
 ) : WishlistOperation
@@ -375,7 +376,8 @@ data class UpdateWishlistBatchRequest(
     override val type: String = "update_wishlist",
     val serverId: String,
     val name: String? = null,
-    val expectedPrice: Int? = null
+    val minPrice: Int? = null,
+    val maxPrice: Int? = null
     // tagId removed
 ) : WishlistOperation
 
@@ -494,7 +496,8 @@ data class ApiGraphEdge(
 data class ApiWishlistItem(
     val id: String,
     val name: String,
-    val expectedPrice: Int,
+    val minPrice: Int,
+    val maxPrice: Int,
     // tagId removed
     val createdAt: Long,
     val updatedAt: Long
@@ -503,7 +506,7 @@ data class ApiWishlistItem(
 @Serializable
 data class ApiWishlistTag(
     val id: String,
-    val wishlistId: String,
+    val wishlistId: Int,
     val tagId: String,
     val createdAt: Long,
     val updatedAt: Long

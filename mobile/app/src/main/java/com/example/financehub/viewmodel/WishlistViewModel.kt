@@ -29,9 +29,9 @@ class WishlistViewModel(
             initialValue = emptyList()
         )
 
-    fun addWishlistItem(name: String, expectedPrice: Int, tagIds: List<Int>) {
+    fun addWishlistItem(name: String, minPrice: Int, maxPrice: Int, tagIds: List<Int>) {
         viewModelScope.launch {
-            wishlistRepository.addWishlistItem(name, expectedPrice, tagIds)
+            wishlistRepository.addWishlistItem(name, minPrice, maxPrice, tagIds)
         }
     }
 

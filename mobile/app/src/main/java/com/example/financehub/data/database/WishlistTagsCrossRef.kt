@@ -25,7 +25,7 @@ import java.util.UUID
     indices = [Index(value = ["wishlistId"]), Index(value = ["tagID"])]
 )
 data class WishlistTagsCrossRef(
-    val wishlistId: String,
+    val wishlistId: Int,
     val tagID: Int,
     
     // Sync metadata - Need ID for sync tracking

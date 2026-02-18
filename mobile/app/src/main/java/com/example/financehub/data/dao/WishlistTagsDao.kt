@@ -14,13 +14,13 @@ interface WishlistTagsDao {
     suspend fun deleteWishlistTag(crossRef: WishlistTagsCrossRef)
     
     @Query("DELETE FROM wishlist_tags WHERE wishlistId = :wishlistId AND tagID = :tagId")
-    suspend fun deleteWishlistTagByIds(wishlistId: String, tagId: Int)
+    suspend fun deleteWishlistTagByIds(wishlistId: Int, tagId: Int)
 
     @Query("SELECT * FROM wishlist_tags WHERE pendingSync = 1")
     suspend fun getPendingSyncWishlistTags(): List<WishlistTagsCrossRef>
 
     @Query("UPDATE wishlist_tags SET pendingSync = 1, syncOperation = :operation, updatedAt = :timestamp WHERE wishlistId = :wishlistId AND tagID = :tagId")
-    suspend fun markForSync(wishlistId: String, tagId: Int, operation: String, timestamp: Long)
+    suspend fun markForSync(wishlistId: Int, tagId: Int, operation: String, timestamp: Long)
 
     @Query("UPDATE wishlist_tags SET serverId = :serverId, lastSyncedAt = :lastSyncedAt, pendingSync = :pendingSync, syncOperation = :syncOperation WHERE id = :id")
     suspend fun updateSyncMetadata(id: String, serverId: String?, lastSyncedAt: Long, pendingSync: Boolean, syncOperation: String?)
@@ -29,13 +29,13 @@ interface WishlistTagsDao {
     suspend fun getWishlistTagByServerId(serverId: String): WishlistTagsCrossRef?
     
     @Query("SELECT * FROM wishlist_tags WHERE wishlistId = :wishlistId AND tagID = :tagId LIMIT 1")
-    suspend fun getWishlistTag(wishlistId: String, tagId: Int): WishlistTagsCrossRef?
+    suspend fun getWishlistTag(wishlistId: Int, tagId: Int): WishlistTagsCrossRef?
     
     // Helper to get tags for a wishlist item
     @Transaction
     @Query("SELECT * FROM tags INNER JOIN wishlist_tags ON tags.tagID = wishlist_tags.tagID WHERE wishlist_tags.wishlistId = :wishlistId")
-    fun getTagsForWishlist(wishlistId: String): Flow<List<Tags>>
+    fun getTagsForWishlist(wishlistId: Int): Flow<List<Tags>>
     
     @Query("SELECT * FROM wishlist_tags WHERE wishlistId = :wishlistId")
-    suspend fun getWishlistTagsByWishlistId(wishlistId: String): List<WishlistTagsCrossRef>
+    suspend fun getWishlistTagsByWishlistId(wishlistId: Int): List<WishlistTagsCrossRef>
 }

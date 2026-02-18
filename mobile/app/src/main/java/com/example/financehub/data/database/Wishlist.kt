@@ -10,11 +10,11 @@ import java.util.UUID
     tableName = "wishlist"
 )
 data class Wishlist(
-    @PrimaryKey val id: String = UUID.randomUUID().toString(),
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val name: String,
-    val expectedPrice: Int,
-    // tagID removed for multi-tag support
-    
+    val minPrice: Int,
+    val maxPrice: Int,
+
     // Sync metadata
     val serverId: String? = null,
     val lastSyncedAt: Long? = null,

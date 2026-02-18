@@ -1,6 +1,5 @@
 package com.example.financehub.ui.sync
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -25,7 +24,6 @@ fun SyncStatusIndicator(
     modifier: Modifier = Modifier,
     compact: Boolean = false
 ) {
-    val isConnectedToWifi by ConnectivityState.isConnectedToHomeWifi.collectAsStateWithLifecycle()
     val isServerReachable by ConnectivityState.isServerReachable.collectAsStateWithLifecycle()
     val syncStatus by ConnectivityState.syncStatus.collectAsStateWithLifecycle()
     val lastSyncTimestamp by ConnectivityState.lastSyncTimestamp.collectAsStateWithLifecycle()
@@ -33,14 +31,12 @@ fun SyncStatusIndicator(
 
     if (compact) {
         CompactSyncIndicator(
-            isConnectedToWifi = isConnectedToWifi,
             isServerReachable = isServerReachable,
             syncStatus = syncStatus,
             modifier = modifier
         )
     } else {
         DetailedSyncIndicator(
-            isConnectedToWifi = isConnectedToWifi,
             isServerReachable = isServerReachable,
             syncStatus = syncStatus,
             lastSyncTimestamp = lastSyncTimestamp,
@@ -52,7 +48,6 @@ fun SyncStatusIndicator(
 
 @Composable
 private fun CompactSyncIndicator(
-    isConnectedToWifi: Boolean,
     isServerReachable: Boolean,
     syncStatus: SyncStatus,
     modifier: Modifier = Modifier
@@ -60,7 +55,6 @@ private fun CompactSyncIndicator(
     val (icon, color, text) = when {
         syncStatus == SyncStatus.SYNCING -> Triple(Icons.Default.Sync, Color(0xFF2196F3), "Syncing...")
         isServerReachable -> Triple(Icons.Default.CloudDone, Color(0xFF4CAF50), "Online")
-        isConnectedToWifi -> Triple(Icons.Default.Wifi, Color(0xFFFF9800), "WiFi Only")
         else -> Triple(Icons.Default.CloudOff, Color(0xFF757575), "Offline")
     }
 
@@ -86,7 +80,6 @@ private fun CompactSyncIndicator(
 
 @Composable
 private fun DetailedSyncIndicator(
-    isConnectedToWifi: Boolean,
     isServerReachable: Boolean,
     syncStatus: SyncStatus,
     lastSyncTimestamp: Long?,
@@ -109,12 +102,7 @@ private fun DetailedSyncIndicator(
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            // WiFi Status
-            StatusRow(
-                icon = if (isConnectedToWifi) Icons.Default.Wifi else Icons.Default.WifiOff,
-                text = if (isConnectedToWifi) "Connected to Home WiFi" else "Not on Home WiFi",
-                isPositive = isConnectedToWifi
-            )
+
             
             Spacer(modifier = Modifier.height(8.dp))
             

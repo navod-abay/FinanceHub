@@ -13,7 +13,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
 import com.example.financehub.data.database.Wishlist
 import com.example.financehub.data.database.WishlistWithTags
 import com.example.financehub.viewmodel.WishlistViewModel
@@ -24,7 +23,6 @@ import androidx.compose.ui.text.input.KeyboardType
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WishlistScreen(
-    navController: NavController,
     viewModel: WishlistViewModel
 ) {
     val wishlistItems by viewModel.wishlistItems.collectAsState()
@@ -63,7 +61,7 @@ fun WishlistScreen(
                     },
                     onDelete = { viewModel.deleteWishlistItem(itemWithTags.wishlist) }
                 )
-                Divider()
+                HorizontalDivider()
             }
         }
 
@@ -72,13 +70,14 @@ fun WishlistScreen(
                 item = selectedItem,
                 allTags = allTags,
                 onDismiss = { showDialog = false },
-                onSave = { name, price, tagIds ->
+                onSave = { name, minPrice, maxPrice, tagIds ->
                     if (selectedItem == null) {
-                        viewModel.addWishlistItem(name, price, tagIds)
+                        viewModel.addWishlistItem(name, minPrice, maxPrice, tagIds)
                     } else {
                         viewModel.updateWishlistItem(selectedItem!!.wishlist.copy(
                             name = name,
-                            expectedPrice = price
+                            minPrice = minPrice,
+                            maxPrice = maxPrice
                         ), tagIds)
                     }
                     showDialog = false
@@ -105,7 +104,7 @@ fun WishlistItemRow(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(text = item.name, style = MaterialTheme.typography.titleMedium)
-            Text(text = "Price: $${item.expectedPrice} | Tags: $tagsString", style = MaterialTheme.typography.bodyMedium)
+            Text(text = "Price: LKR ${item.minPrice} - LKR ${item.maxPrice} | Tags: $tagsString", style = MaterialTheme.typography.bodyMedium)
         }
         Row {
             IconButton(onClick = onEdit) {
@@ -118,16 +117,16 @@ fun WishlistItemRow(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WishlistItemDialog(
     item: WishlistWithTags?,
     allTags: List<Tags>,
     onDismiss: () -> Unit,
-    onSave: (String, Int, List<Int>) -> Unit
+    onSave: (String, Int, Int, List<Int>) -> Unit
 ) {
     var name by remember { mutableStateOf(item?.wishlist?.name ?: "") }
-    var priceStr by remember { mutableStateOf(item?.wishlist?.expectedPrice?.toString() ?: "") }
+    var minPriceStr by remember { mutableStateOf(item?.wishlist?.minPrice?.toString() ?: "") }
+    var maxPriceStr by remember { mutableStateOf(item?.wishlist?.minPrice?.toString() ?: "") }
     // Multi-select state
     val initialTagIds = item?.tags?.map { it.tagID } ?: emptyList()
     var selectedTagIds by remember { mutableStateOf(initialTagIds.toSet()) }
@@ -144,8 +143,14 @@ fun WishlistItemDialog(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
-                    value = priceStr,
-                    onValueChange = { priceStr = it },
+                    value = minPriceStr,
+                    onValueChange = { minPriceStr = it },
+                    label = { Text("Expected Price") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+                OutlinedTextField(
+                    value = maxPriceStr,
+                    onValueChange = { maxPriceStr = it },
                     label = { Text("Expected Price") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
@@ -184,8 +189,9 @@ fun WishlistItemDialog(
         },
         confirmButton = {
             TextButton(onClick = {
-                val price = priceStr.toIntOrNull() ?: 0
-                onSave(name, price, selectedTagIds.toList())
+                val minPrice = minPriceStr.toIntOrNull() ?: 0
+                val maxPrice = maxPriceStr.toIntOrNull() ?: 0
+                onSave(name, minPrice, maxPrice, selectedTagIds.toList())
             }) {
                 Text("Save")
             }

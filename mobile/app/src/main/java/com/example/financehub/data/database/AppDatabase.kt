@@ -17,7 +17,7 @@ import com.example.financehub.data.database.WishlistTagsCrossRef
 import com.example.financehub.data.database.Wishlist
 
 
-@Database(entities = [Expense::class, Tags::class, ExpenseTagsCrossRef::class, Target::class, GraphEdge::class, Wishlist::class, WishlistTagsCrossRef::class], version = 13)
+@Database(entities = [Expense::class, Tags::class, ExpenseTagsCrossRef::class, Target::class, GraphEdge::class, Wishlist::class, WishlistTagsCrossRef::class], version = 14)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao
     abstract fun tagsDao(): TagsDao
@@ -39,7 +39,6 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "expense_database"
                 ).addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
-                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance

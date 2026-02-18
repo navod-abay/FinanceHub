@@ -85,7 +85,7 @@ fun NavGraph(navController: NavHostController) {
             ExpenseAnalyticsScreen(navController = navController, viewModel = analyticsViewModel)
         }
         composable(route = Screens.Wishlist.route) {
-            WishlistScreen(navController = navController, viewModel = wishlistViewModel)
+            WishlistScreen( viewModel = wishlistViewModel)
         }
     }
 }
