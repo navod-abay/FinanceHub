@@ -5,9 +5,9 @@
       image: postgres:15-alpine
       container_name: financehub_db
       environment:
-        POSTGRES_DB: financehub_db
-        POSTGRES_USER: financehub
-        POSTGRES_PASSWORD: password123
+        POSTGRES_DB: financehub
+        POSTGRES_USER: financehub_user
+        POSTGRES_PASSWORD: Towel;2340
         POSTGRES_HOST_AUTH_METHOD: trust
       ports:
         - "5432:5432"
@@ -22,7 +22,6 @@
       build: .
       container_name: financehub_api
       environment:
-        DATABASE_URL: postgresql://financehub:password123@db:5432/financehub_db
         DEBUG: "false"
       ports:
         - "8000:8000"
