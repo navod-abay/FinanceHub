@@ -86,6 +86,9 @@ ORDER BY year DESC, month DESC, date DESC
     @Query("SELECT * FROM expenses WHERE serverId = :serverId")
     suspend fun getExpenseByServerId(serverId: String): Expense?
 
+    @Query("SELECT * FROM expenses WHERE expenseID = :expenseId")
+    suspend fun getExpenseById(expenseId: Int): Expense?
+
     @Query("""
         UPDATE expenses 
         SET serverId = :serverId, lastSyncedAt = :lastSyncedAt, pendingSync = :pendingSync, syncOperation = :syncOperation

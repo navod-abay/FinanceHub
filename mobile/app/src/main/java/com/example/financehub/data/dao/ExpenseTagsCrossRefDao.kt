@@ -16,6 +16,12 @@ interface ExpenseTagsCrossRefDao {
     @Query("SELECT * FROM tags INNER JOIN expense_tags ON tags.tagID = expense_tags.tagID WHERE expense_tags.expenseID = :expenseID")
     suspend fun getTagsForExpense(expenseID: Int): List<Tags>
 
+    @Query("SELECT * FROM expense_tags WHERE expenseID = :expenseId")
+    suspend fun getCrossRefsForExpense(expenseId: Int): List<ExpenseTagsCrossRef>
+
+    @Query("SELECT * FROM expense_tags WHERE tagID = :tagId")
+    suspend fun getExpensesForTag(tagId: Int): List<ExpenseTagsCrossRef>
+
     @Delete
     suspend fun deleteExpenseTagsCrossRef(ref: ExpenseTagsCrossRef)
 
@@ -25,6 +31,9 @@ interface ExpenseTagsCrossRefDao {
     // Sync-related methods
     @Query("SELECT * FROM expense_tags WHERE pendingSync = 1")
     suspend fun getPendingSyncExpenseTags(): List<ExpenseTagsCrossRef>
+
+    @Query("SELECT * FROM expense_tags WHERE id = :id")
+    suspend fun getExpenseTagById(id: Long): ExpenseTagsCrossRef?
 
     @Query("SELECT * FROM expense_tags WHERE serverId = :serverId")
     suspend fun getExpenseTagByServerId(serverId: String): ExpenseTagsCrossRef?

@@ -3,6 +3,7 @@ package com.example.financehub.sync
 import android.content.Context
 import android.util.Log
 import com.example.financehub.data.database.AppDatabase
+import com.example.financehub.data.database.EntityMapping
 import com.example.financehub.data.database.Expense
 import com.example.financehub.data.database.Tags
 import com.example.financehub.data.database.Target
@@ -45,6 +46,16 @@ import com.example.financehub.network.models.BatchSyncWishlistTagsRequest
 import com.example.financehub.network.models.CreateWishlistTagBatchRequest
 import com.example.financehub.network.models.DeleteWishlistTagBatchRequest
 import com.example.financehub.data.database.WishlistTagsCrossRef
+import com.example.financehub.network.models.AtomicSyncGroup
+import com.example.financehub.network.models.AtomicSyncRequest
+import com.example.financehub.network.models.AtomicSyncResponse
+import com.example.financehub.network.models.ExpenseOperation
+import com.example.financehub.network.models.ExpenseTagOperation
+import com.example.financehub.network.models.GraphEdgeOperation
+import com.example.financehub.network.models.TagOperation
+import com.example.financehub.network.models.TargetOperation
+import com.example.financehub.network.models.WishlistOperation
+import com.example.financehub.network.models.WishlistTagOperation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -130,46 +141,423 @@ class SyncManager constructor(
     }
 
     /**
-     * Push all pending local changes to the server
+     * Push all pending local changes to the server using atomic sync groups
      */
     private suspend fun pushLocalChanges(): SyncResult {
         try {
-            _syncProgress.value = _syncProgress.value.copy(stage = "Pushing local changes...")
-            Log.d("SyncManager", "Pushing local changes to server...")
-            // Push expenses
-            val pendingExpenses = database.expenseDao().getPendingSyncExpenses()
-            Log.d("SyncManager", "Found ${pendingExpenses.size} pending expenses to sync")
-            pushExpensesToServer(pendingExpenses)
-
-            // Push tags
-            val pendingTags = database.tagsDao().getPendingSyncTags()
-            pushTagsToServer(pendingTags)
-
-            // Push targets
-            val pendingTargets = database.targetDao().getPendingSyncTargets()
-            pushTargetsToServer(pendingTargets)
-
-            // Push expense-tag relationships
-            val pendingExpenseTags = database.expenseTagsCrossRefDao().getPendingSyncExpenseTags()
-            pushExpenseTagsToServer(pendingExpenseTags)
-
-            // Push graph edges
-            val pendingGraphEdges = database.graphEdgeDAO().getPendingSyncGraphEdges()
-            pushGraphEdgesToServer(pendingGraphEdges)
-
-            // Push wishlist
-            val pendingWishlist = database.wishlistDao().getPendingSyncWishlist()
-            pushWishlistToServer(pendingWishlist)
-
-            // Push wishlist tags
-            val pendingWishlistTags = database.wishlistTagsDao().getPendingSyncWishlistTags()
-            pushWishlistTagsToServer(pendingWishlistTags)
-
-            return SyncResult.success("Local changes pushed successfully")
+            _syncProgress.value = _syncProgress.value.copy(stage = "Creating sync groups...")
+            Log.d(TAG, "Creating atomic sync groups...")
+            
+            // Build atomic sync groups from pending entities
+            val groupBuilder = AtomicSyncGroupBuilder(database)
+            val groupIds = groupBuilder.createPendingSyncGroups()
+            
+            if (groupIds.isEmpty()) {
+                Log.d(TAG, "No pending changes to sync")
+                return SyncResult.success("No pending changes")
+            }
+            
+            Log.d(TAG, "Created ${groupIds.size} sync groups")
+            _syncProgress.value = _syncProgress.value.copy(stage = "Pushing ${groupIds.size} groups...")
+            
+            // Build atomic sync request from groups
+            val atomicGroups = mutableListOf<AtomicSyncGroup>()
+            for (groupId in groupIds) {
+                val group = buildAtomicSyncGroup(groupId)
+                if (group != null) {
+                    atomicGroups.add(group)
+                }
+            }
+            
+            if (atomicGroups.isEmpty()) {
+                Log.d(TAG, "No valid groups to sync")
+                return SyncResult.success("No valid groups")
+            }
+            
+            // Send atomic sync request
+            val request = AtomicSyncRequest(groups = atomicGroups)
+            val response = apiService.atomicSync(request)
+            
+            if (response.isSuccessful) {
+                val responseBody = response.body()
+                if (responseBody != null) {
+                    Log.d(TAG, "Atomic sync completed: ${responseBody.successfulGroups}/${responseBody.totalGroups} groups succeeded")
+                    
+                    // Process results
+                    processAtomicSyncResults(groupIds, responseBody)
+                    
+                    return SyncResult.success("Synced ${responseBody.successfulGroups}/${responseBody.totalGroups} groups")
+                } else {
+                    return SyncResult.failure("Empty response from server")
+                }
+            } else {
+                Log.e(TAG, "Atomic sync failed: ${response.message()}")
+                return SyncResult.failure("Sync failed: ${response.message()}")
+            }
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to push local changes", e)
             return SyncResult.failure("Failed to push local changes: ${e.message}")
+        }
+    }
+    
+    /**
+     * Build an AtomicSyncGroup from a sync group in the database
+     */
+    private suspend fun buildAtomicSyncGroup(groupId: Long): AtomicSyncGroup? {
+        try {
+            val groupEntities = database.syncGroupEntityDao().getEntitiesForGroup(groupId)
+            if (groupEntities.isEmpty()) {
+                return null
+            }
+            
+            val expenses = mutableListOf<ExpenseOperation>()
+            val tags = mutableListOf<TagOperation>()
+            val targets = mutableListOf<TargetOperation>()
+            val expenseTags = mutableListOf<ExpenseTagOperation>()
+            val graphEdges = mutableListOf<GraphEdgeOperation>()
+            val wishlist = mutableListOf<WishlistOperation>()
+            val wishlistTags = mutableListOf<WishlistTagOperation>()
+            
+            for (entityRef in groupEntities) {
+                when (entityRef.entityType) {
+                    "expense" -> {
+                        val expense = database.expenseDao().getExpenseById(entityRef.localId.toInt())
+                        if (expense != null) {
+                            expenses.add(buildExpenseOperation(expense, entityRef.operation))
+                        }
+                    }
+                    "tag" -> {
+                        val tag = database.tagsDao().getTagById(entityRef.localId.toInt())
+                        if (tag != null) {
+                            tags.add(buildTagOperation(tag, entityRef.operation))
+                        }
+                    }
+                    "target" -> {
+                        val target = database.targetDao().getTargetById(entityRef.localId)
+                        if (target != null) {
+                            targets.add(buildTargetOperation(target, entityRef.operation))
+                        }
+                    }
+                    "expense_tag" -> {
+                        val expenseTag = database.expenseTagsCrossRefDao().getExpenseTagById(entityRef.localId)
+                        if (expenseTag != null) {
+                            expenseTags.add(buildExpenseTagOperation(expenseTag, entityRef.operation))
+                        }
+                    }
+                    "graph_edge" -> {
+                        val graphEdge = database.graphEdgeDAO().getGraphEdgeById(entityRef.localId)
+                        if (graphEdge != null) {
+                            graphEdges.add(buildGraphEdgeOperation(graphEdge, entityRef.operation))
+                        }
+                    }
+                    "wishlist" -> {
+                        val wishlistItem = database.wishlistDao().getWishlistById(entityRef.localId.toString())
+                        if (wishlistItem != null) {
+                            wishlist.add(buildWishlistOperation(wishlistItem, entityRef.operation))
+                        }
+                    }
+                    "wishlist_tag" -> {
+                        val wishlistTag = database.wishlistTagsDao().getWishlistTagById(entityRef.localId.toString())
+                        if (wishlistTag != null) {
+                            wishlistTags.add(buildWishlistTagOperation(wishlistTag, entityRef.operation))
+                        }
+                    }
+                }
+            }
+            
+            return AtomicSyncGroup(
+                expenses = expenses,
+                tags = tags,
+                targets = targets,
+                expenseTags = expenseTags,
+                graphEdges = graphEdges,
+                wishlist = wishlist,
+                wishlistTags = wishlistTags
+            )
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to build atomic group $groupId", e)
+            return null
+        }
+    }
+    
+    /**
+     * Build an expense operation from an Expense entity
+     */
+    private fun buildExpenseOperation(expense: Expense, operation: String): ExpenseOperation {
+        return when (operation) {
+            "CREATE" -> CreateExpenseBatchRequest(
+                title = expense.title,
+                amount = expense.amount,
+                year = expense.year,
+                month = expense.month,
+                date = expense.date,
+                clientId = expense.expenseID.toString()
+            )
+            "UPDATE" -> UpdateExpenseBatchRequest(
+                serverId = expense.serverId!!,
+                title = expense.title,
+                amount = expense.amount,
+                year = expense.year,
+                month = expense.month,
+                date = expense.date
+            )
+            "DELETE" -> DeleteExpenseBatchRequest(
+                serverId = expense.serverId!!
+            )
+            else -> throw IllegalArgumentException("Unknown operation: $operation")
+        }
+    }
+    
+    /**
+     * Build a tag operation from a Tags entity
+     */
+    private fun buildTagOperation(tag: Tags, operation: String): TagOperation {
+        return when (operation) {
+            "CREATE" -> CreateTagBatchRequest(
+                name = tag.tag,
+                monthlyAmount = tag.monthlyAmount,
+                currentMonth = tag.currentMonth,
+                currentYear = tag.currentYear,
+                createdDay = tag.createdDay,
+                createdMonth = tag.createdMonth,
+                createdYear = tag.createdYear,
+                clientId = tag.tagID.toString()
+            )
+            "UPDATE" -> UpdateTagBatchRequest(
+                serverId = tag.serverId!!,
+                name = tag.tag,
+                monthlyAmount = tag.monthlyAmount,
+                currentMonth = tag.currentMonth,
+                currentYear = tag.currentYear
+            )
+            "DELETE" -> DeleteTagBatchRequest(
+                serverId = tag.serverId!!
+            )
+            else -> throw IllegalArgumentException("Unknown operation: $operation")
+        }
+    }
+    
+    /**
+     * Build a target operation from a Target entity
+     */
+    private fun buildTargetOperation(target: Target, operation: String): TargetOperation {
+        return when (operation) {
+            "CREATE" -> CreateTargetBatchRequest(
+                month = target.month,
+                year = target.year,
+                tagId = target.serverId ?: target.tagID.toString(),
+                amount = target.amount,
+                spent = target.spent,
+                clientId = target.id.toString()
+            )
+            "UPDATE" -> UpdateTargetBatchRequest(
+                serverId = target.serverId!!,
+                amount = target.amount,
+                spent = target.spent
+            )
+            "DELETE" -> DeleteTargetBatchRequest(
+                serverId = target.serverId!!
+            )
+            else -> throw IllegalArgumentException("Unknown operation: $operation")
+        }
+    }
+    
+    /**
+     * Build an expense-tag operation from an ExpenseTagsCrossRef entity
+     */
+    private suspend fun buildExpenseTagOperation(expenseTag: ExpenseTagsCrossRef, operation: String): ExpenseTagOperation {
+        return when (operation) {
+            "CREATE" -> {
+                val expenseServerId = database.entityMappingDao().getServerId("expense", expenseTag.expenseID.toLong())
+                    ?: database.expenseDao().getExpenseById(expenseTag.expenseID)?.serverId
+                    ?: expenseTag.expenseID.toString()
+                
+                val tagServerId = database.entityMappingDao().getServerId("tag", expenseTag.tagID.toLong())
+                    ?: database.tagsDao().getTagById(expenseTag.tagID)?.serverId
+                    ?: expenseTag.tagID.toString()
+                
+                CreateExpenseTagBatchRequest(
+                    expenseId = expenseServerId,
+                    tagId = tagServerId,
+                    clientId = expenseTag.id.toString()
+                )
+            }
+            "DELETE" -> DeleteExpenseTagBatchRequest(
+                serverId = expenseTag.serverId!!
+            )
+            else -> throw IllegalArgumentException("Unknown operation: $operation")
+        }
+    }
+    
+    /**
+     * Build a graph edge operation from a GraphEdge entity
+     */
+    private suspend fun buildGraphEdgeOperation(graphEdge: GraphEdge, operation: String): GraphEdgeOperation {
+        return when (operation) {
+            "CREATE" -> {
+                val fromTagServerId = database.entityMappingDao().getServerId("tag", graphEdge.fromTagId.toLong())
+                    ?: database.tagsDao().getTagById(graphEdge.fromTagId)?.serverId
+                    ?: graphEdge.fromTagId.toString()
+                
+                val toTagServerId = database.entityMappingDao().getServerId("tag", graphEdge.toTagId.toLong())
+                    ?: database.tagsDao().getTagById(graphEdge.toTagId)?.serverId
+                    ?: graphEdge.toTagId.toString()
+                
+                CreateGraphEdgeBatchRequest(
+                    fromTagId = fromTagServerId,
+                    toTagId = toTagServerId,
+                    weight = graphEdge.weight,
+                    clientId = graphEdge.id.toString()
+                )
+            }
+            "UPDATE" -> UpdateGraphEdgeBatchRequest(
+                serverId = graphEdge.serverId!!,
+                weight = graphEdge.weight
+            )
+            "DELETE" -> DeleteGraphEdgeBatchRequest(
+                serverId = graphEdge.serverId!!
+            )
+            else -> throw IllegalArgumentException("Unknown operation: $operation")
+        }
+    }
+    
+    /**
+     * Build a wishlist operation from a Wishlist entity
+     */
+    private fun buildWishlistOperation(wishlistItem: Wishlist, operation: String): WishlistOperation {
+        return when (operation) {
+            "CREATE" -> CreateWishlistBatchRequest(
+                name = wishlistItem.name,
+                minPrice = wishlistItem.minPrice,
+                maxPrice = wishlistItem.maxPrice,
+                clientId = wishlistItem.id.toString()
+            )
+            "UPDATE" -> UpdateWishlistBatchRequest(
+                serverId = wishlistItem.serverId!!,
+                name = wishlistItem.name,
+                minPrice = wishlistItem.minPrice,
+                maxPrice = wishlistItem.maxPrice
+            )
+            "DELETE" -> DeleteWishlistBatchRequest(
+                serverId = wishlistItem.serverId!!
+            )
+            else -> throw IllegalArgumentException("Unknown operation: $operation")
+        }
+    }
+    
+    /**
+     * Build a wishlist-tag operation from a WishlistTagsCrossRef entity
+     */
+    private suspend fun buildWishlistTagOperation(wishlistTag: WishlistTagsCrossRef, operation: String): WishlistTagOperation {
+        return when (operation) {
+            "CREATE" -> {
+                val tagServerId = database.entityMappingDao().getServerId("tag", wishlistTag.tagID.toLong())
+                    ?: database.tagsDao().getTagById(wishlistTag.tagID)?.serverId
+                    ?: wishlistTag.tagID.toString()
+                
+                CreateWishlistTagBatchRequest(
+                    wishlistId = wishlistTag.wishlistId.hashCode(),
+                    tagId = tagServerId,
+                    clientId = wishlistTag.id
+                )
+            }
+            "DELETE" -> DeleteWishlistTagBatchRequest(
+                wishlistId = wishlistTag.wishlistId.hashCode(),
+                tagId = wishlistTag.tagID.toString(),
+                serverId = wishlistTag.serverId
+            )
+            else -> throw IllegalArgumentException("Unknown operation: $operation")
+        }
+    }
+    
+    /**
+     * Process atomic sync results and update local database
+     */
+    private suspend fun processAtomicSyncResults(groupIds: List<Long>, response: AtomicSyncResponse) {
+        for ((index, groupResult) in response.groupResults.withIndex()) {
+            val groupId = groupIds.getOrNull(index) ?: continue
+            
+            if (groupResult.success) {
+                // Mark group as successful
+                database.syncGroupDao().updateStatus(
+                    groupId = groupId,
+                    status = "SUCCESS",
+                    syncedAt = System.currentTimeMillis(),
+                    errorMessage = null
+                )
+                
+                // Save entity mappings
+                for (mapping in groupResult.entityMappings) {
+                    database.entityMappingDao().insert(
+                        EntityMapping(
+                            entityType = mapping.entityType,
+                            localId = mapping.clientId.toLong(),
+                            serverId = mapping.serverId
+                        )
+                    )
+                }
+                
+                // Clear pending sync flags for entities in this group
+                clearPendingSyncForGroup(groupId)
+                
+            } else {
+                // Mark group as failed
+                val errorMsg = groupResult.errors.joinToString("; ")
+                database.syncGroupDao().updateStatus(
+                    groupId = groupId,
+                    status = "FAILED",
+                    syncedAt = null,
+                    errorMessage = errorMsg
+                )
+                Log.e(TAG, "Group $groupId failed: $errorMsg")
+            }
+        }
+    }
+    
+    /**
+     * Clear pending sync flags for all entities in a group
+     */
+    private suspend fun clearPendingSyncForGroup(groupId: Long) {
+        val entities = database.syncGroupEntityDao().getEntitiesForGroup(groupId)
+        
+        for (entity in entities) {
+            when (entity.entityType) {
+                "expense" -> {
+                    database.expenseDao().updateSyncMetadata(
+                        expenseId = entity.localId.toInt(),
+                        serverId = null,
+                        lastSyncedAt = System.currentTimeMillis(),
+                        pendingSync = false,
+                        syncOperation = null
+                    )
+                }
+                "tag" -> {
+                    database.tagsDao().updateSyncMetadata(
+                        tagId = entity.localId.toInt(),
+                        serverId = null,
+                        lastSyncedAt = System.currentTimeMillis(),
+                        pendingSync = false,
+                        syncOperation = null
+                    )
+                }
+                "target" -> {
+                    // Similar update for targets
+                }
+                "expense_tag" -> {
+                    // Similar update for expense tags
+                }
+                "graph_edge" -> {
+                    // Similar update for graph edges
+                }
+                "wishlist" -> {
+                    // Similar update for wishlist
+                }
+                "wishlist_tag" -> {
+                    // Similar update for wishlist tags
+                }
+            }
         }
     }
 

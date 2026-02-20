@@ -523,3 +523,64 @@ data class UpdatedDataResponse(
     val wishlist: List<ApiWishlistItem> = emptyList(),
     val wishlistTags: List<ApiWishlistTag> = emptyList()
 )
+
+// Atomic Sync Models
+
+/**
+ * Entity mapping from client ID to server ID.
+ * Returned when a CREATE operation succeeds.
+ */
+@Serializable
+data class EntityMappingResponse(
+    @SerialName("entity_type") val entityType: String,
+    @SerialName("client_id") val clientId: String,
+    @SerialName("server_id") val serverId: String
+)
+
+/**
+ * Result of processing one atomic group.
+ * A group either fully succeeds or fully fails.
+ */
+@Serializable
+data class AtomicGroupResult(
+    val success: Boolean,
+    @SerialName("group_number") val groupNumber: Int,
+    val errors: List<String> = emptyList(),
+    @SerialName("entity_mappings") val entityMappings: List<EntityMappingResponse> = emptyList()
+)
+
+/**
+ * Response from atomic sync endpoint.
+ * Contains results for all groups.
+ */
+@Serializable
+data class AtomicSyncResponse(
+    @SerialName("group_results") val groupResults: List<AtomicGroupResult>,
+    @SerialName("total_groups") val totalGroups: Int,
+    @SerialName("successful_groups") val successfulGroups: Int,
+    @SerialName("failed_groups") val failedGroups: Int
+)
+
+/**
+ * A single atomic sync group containing related operations.
+ * All operations in a group are processed atomically.
+ */
+@Serializable
+data class AtomicSyncGroup(
+    val expenses: List<ExpenseOperation> = emptyList(),
+    val tags: List<TagOperation> = emptyList(),
+    val targets: List<TargetOperation> = emptyList(),
+    @SerialName("expense_tags") val expenseTags: List<ExpenseTagOperation> = emptyList(),
+    @SerialName("graph_edges") val graphEdges: List<GraphEdgeOperation> = emptyList(),
+    val wishlist: List<WishlistOperation> = emptyList(),
+    @SerialName("wishlist_tags") val wishlistTags: List<WishlistTagOperation> = emptyList()
+)
+
+/**
+ * Request for atomic sync.
+ * Contains multiple groups that are processed independently.
+ */
+@Serializable
+data class AtomicSyncRequest(
+    val groups: List<AtomicSyncGroup>
+)
