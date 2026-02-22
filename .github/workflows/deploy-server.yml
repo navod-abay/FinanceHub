@@ -1,0 +1,111 @@
+name: Deploy Server to Proxmox VM
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'server/**'
+      - '.github/workflows/deploy-server.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy Server
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.VM_TAILSCALE_IP }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to Proxmox VM
+        env:
+          VM_IP: ${{ secrets.VM_TAILSCALE_IP }}
+          VM_USER: ${{ secrets.VM_SSH_USER }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          ssh ${VM_USER}@${VM_IP} << 'ENDSSH'
+            set -e
+            
+            # Navigate to application directory
+            cd ~/financehub-server || exit 1
+            
+            # Pull latest code
+            echo "Pulling latest code from repository..."
+            if [ -d ".git" ]; then
+              git fetch origin
+              git reset --hard origin/${{ env.BRANCH }}
+            else
+              git clone ${{ env.REPO_URL }} .
+              git checkout ${{ env.BRANCH }}
+            fi
+            
+            echo "Deployed commit: ${{ env.COMMIT_SHA }}"
+            
+            # Stop old containers
+            echo "Stopping old containers..."
+            docker-compose -f docker-compose.prod.yml down || true
+            
+            # Build and start containers
+            echo "Building and starting containers..."
+            docker-compose -f docker-compose.prod.yml up -d --build
+            
+            # Wait for containers to be healthy
+            echo "Waiting for containers to be healthy..."
+            sleep 10
+            
+            # Clean up old images
+            echo "Cleaning up old images..."
+            docker image prune -f
+            
+            echo "Deployment completed successfully!"
+          ENDSSH
+
+      - name: Health Check
+        env:
+          VM_IP: ${{ secrets.VM_TAILSCALE_IP }}
+        run: |
+          echo "Waiting for application to start..."
+          sleep 10
+          
+          echo "Performing health check..."
+          for i in {1..5}; do
+            if curl -f http://${VM_IP}:8000/health > /dev/null 2>&1; then
+              echo "✓ Health check passed!"
+              exit 0
+            fi
+            echo "Health check attempt $i failed, retrying..."
+            sleep 5
+          done
+          
+          echo "✗ Health check failed after 5 attempts"
+          exit 1
+
+      - name: Deployment Status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "🚀 Deployment successful!"
+            echo "Deployed commit: ${{ github.sha }}"
+            echo "Branch: ${{ github.ref_name }}"
+          else
+            echo "❌ Deployment failed!"
+          fi
+
+
+
+
+
