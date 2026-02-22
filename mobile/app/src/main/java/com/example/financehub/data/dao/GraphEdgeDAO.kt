@@ -16,6 +16,12 @@ interface GraphEdgeDAO {
     @Query("SELECT * FROM graph_edges WHERE pendingSync = 1")
     suspend fun getPendingSyncGraphEdges(): List<GraphEdge>
 
+    @Query("SELECT * FROM graph_edges WHERE pendingSync = 1")
+    suspend fun getPendingSyncEdges(): List<GraphEdge>
+
+    @Query("SELECT * FROM graph_edges WHERE id = :id")
+    suspend fun getGraphEdgeById(id: Long): GraphEdge?
+
     @Query("SELECT * FROM graph_edges WHERE serverId = :serverId")
     suspend fun getGraphEdgeByServerId(serverId: String): GraphEdge?
 

@@ -4,7 +4,7 @@ import time
 
 from .database import get_db, create_tables
 from .config import settings
-from .routes import operations, sync, query, batch_sync
+from .routes import operations, sync, query, batch_sync, atomic_sync
 
 # Create FastAPI app
 app = FastAPI(
@@ -32,6 +32,7 @@ async def health_check():
 app.include_router(operations.router, prefix="/api/v1/operations", tags=["operations"])
 app.include_router(sync.router, prefix="/api/v1/sync", tags=["sync"])
 app.include_router(batch_sync.router, prefix="/api/v1/sync", tags=["batch-sync"])
+app.include_router(atomic_sync.router, prefix="/api/v1/sync", tags=["atomic-sync"])
 app.include_router(query.router, prefix="/api/v1", tags=["query"])
 
 if __name__ == "__main__":

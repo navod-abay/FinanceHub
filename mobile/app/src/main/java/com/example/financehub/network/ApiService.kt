@@ -98,6 +98,10 @@ interface FinanceHubApiService {
     @POST("sync/batch/wishlist-tags")
     suspend fun batchSyncWishlistTags(@Body request: BatchSyncWishlistTagsRequest): Response<BatchSyncResponse>
 
+    // Atomic Sync Endpoint
+    @POST("sync/atomic")
+    suspend fun atomicSync(@Body request: AtomicSyncRequest): Response<AtomicSyncResponse>
+
     // Delta Sync Endpoint
     @GET("sync/updated-data")
     suspend fun getUpdatedData(@Query("since") lastSyncTimestamp: Long): Response<UpdatedDataResponse>

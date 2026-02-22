@@ -2,15 +2,20 @@ package com.example.financehub.data.database
 
 import androidx.room.Entity
 import androidx.room.Index
+import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
 @Serializable
 @Entity(
     tableName = "graph_edges",
-    primaryKeys = ["fromTagId", "toTagId"],
-    indices = [Index(value=["fromTagId"],unique = false)]
+    indices = [
+        Index(value=["fromTagId"], unique = false),
+        Index(value=["fromTagId", "toTagId"], unique = true)
+    ]
 )
 data class GraphEdge(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
     val fromTagId: Int = 0,
     val toTagId: Int = 0,
     var weight: Int = 0,

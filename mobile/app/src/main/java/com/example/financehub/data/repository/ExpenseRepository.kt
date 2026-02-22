@@ -187,8 +187,8 @@ class ExpenseRepository(
         
         expenseTagsCrossRefDao.deleteExpenseTagsCrossRef(
             ExpenseTagsCrossRef(
-                expenseID,
-                tag.tagID
+                expenseID = expenseID,
+                tagID = tag.tagID
             )
         )
         val updatedTag: Tags = tagDao.getTagById(tag.tagID) ?: throw IllegalStateException("Tag not found")

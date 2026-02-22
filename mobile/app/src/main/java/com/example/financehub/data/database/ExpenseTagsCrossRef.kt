@@ -2,16 +2,22 @@ package com.example.financehub.data.database
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
+import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "expense_tags",
-    primaryKeys = ["expenseID", "tagID"],
     foreignKeys = [
         ForeignKey(entity = Expense::class, parentColumns = ["expenseID"], childColumns = ["expenseID"], onDelete = ForeignKey.CASCADE),
         ForeignKey(entity = Tags::class, parentColumns = ["tagID"], childColumns = ["tagID"], onDelete = ForeignKey.CASCADE)
+    ],
+    indices = [
+        Index(value = ["expenseID", "tagID"], unique = true)
     ]
 )
 data class ExpenseTagsCrossRef(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
     val expenseID: Int,
     val tagID: Int,
     

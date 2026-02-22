@@ -46,6 +46,9 @@ interface TargetDao {
     @Query("SELECT * FROM targets WHERE pendingSync = 1")
     suspend fun getPendingSyncTargets(): List<Target>
 
+    @Query("SELECT * FROM targets WHERE rowid = :id")
+    suspend fun getTargetById(id: Long): Target?
+
     @Query("SELECT * FROM targets WHERE serverId = :serverId")
     suspend fun getTargetByServerId(serverId: String): Target?
 

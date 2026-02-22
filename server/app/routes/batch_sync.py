@@ -154,7 +154,7 @@ async def get_updated_data(
         tag_responses = [
             ApiTag(
                 id=str(tag.id),
-                name=tag.name,
+                name=tag.tag,
                 monthly_amount=tag.monthly_amount,
                 current_month=tag.current_month,
                 current_year=tag.current_year,
@@ -281,7 +281,7 @@ async def batch_sync_tags(
             try:
                 if operation.type == "create_tag":
                     new_tag = Tag(
-                        name=operation.name,
+                        tag=operation.name,
                         monthly_amount=operation.monthly_amount,
                         current_month=operation.current_month,
                         current_year=operation.current_year,
@@ -303,7 +303,7 @@ async def batch_sync_tags(
                 elif operation.type == "update_tag":
                     tag = db.query(Tag).filter(Tag.id == operation.server_id).first()
                     if tag:
-                        tag.name = operation.name
+                        tag.tag = operation.name
                         tag.monthly_amount = operation.monthly_amount
                         tag.current_month = operation.current_month
                         tag.current_year = operation.current_year

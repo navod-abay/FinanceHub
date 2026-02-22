@@ -30,6 +30,9 @@ interface WishlistDao {
     
     @Query("SELECT * FROM wishlist WHERE pendingSync = 1")
     suspend fun getPendingSyncWishlist(): List<Wishlist>
+
+    @Query("SELECT * FROM wishlist WHERE id = :id")
+    suspend fun getWishlistById(id: String): Wishlist?
     
     @Query("UPDATE wishlist SET serverId = :serverId, lastSyncedAt = :lastSyncedAt, pendingSync = :pendingSync, syncOperation = :syncOperation WHERE id = :id")
     suspend fun updateSyncMetadata(id: Int, serverId: String?, lastSyncedAt: Long, pendingSync: Boolean, syncOperation: String?)
