@@ -66,19 +66,41 @@ ssh-copy-id -i ~/.ssh/financehub_deploy.pub user@<vm-ip>
 cat ~/.ssh/financehub_deploy
 ```
 
-### 4. VM Configuration Files
+### 4. VM Git Configuration
 
-Copy these files to your VM at `~/financehub-server/`:
-
-**docker-compose.prod.yml** - Copy from `server/docker-compose.prod.yml` in the repository
+Set up Git on your VM for repository access:
 ```bash
-# On your local machine
-scp server/docker-compose.prod.yml <user>@<tailscale-ip>:~/financehub-server/
+# Configure git (if not already done)
+git config --global user.name "Your Name"
+git config --global user.email "your.email@example.com"
+
+# For private repositories, set up SSH key or token
+# Generate SSH key on VM
+ssh-keygen -t ed25519 -C "vm-github-access"
+
+# Add public key to GitHub (Settings > SSH and GPG keys)
+cat ~/.ssh/id_ed25519.pub
+
+# Test connection
+ssh -T git@github.com
 ```
 
-**`.env`** - Create from `.env.example`:
+### 4. VM Configuration Files
+
+Create the application directory and configuration:
 ```bash
+# Create application directory
+mkdir -p ~/financehub-server
 cd ~/financehub-server
+
+# Clone the repository (first time only)
+git clone https://github.com/<your-username>/FinanceHub---Monorepo.git .
+# Or for SSH: git clone git@github.com:<your-username>/FinanceHub---Monorepo.git .
+
+# Copy docker-compose.prod.yml to root of project if not already there
+# It should be in server/docker-compose.prod.yml
+
+# Create .env file
 cat > .env << 'EOF'
 # Database Configuration
 DATABASE_URL=postgresql://financehub_user:your-password-here@db:5432/financehub
@@ -99,13 +121,11 @@ EOF
 ```bash
 python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
-
-### 5. Initial Setup
-
-Pull the initial image:
+Build and start the containers:
 ```bash
 # On VM
-cd ~/financehub-server
+cd ~/financehub-server/server
+docker-compose -f docker-compose.prod.yml up -d --buil
 docker pull ghcr.io/<your-github-username>/financehub-server:latest
 docker tag ghcr.io/<your-github-username>/financehub-server:latest financehub-server:latest
 docker-compose -f docker-compose.prod.yml up -d
@@ -136,13 +156,12 @@ The workflow automatically:
 1. Builds Docker image from `server/Dockerfile`
 2. Pushes to GitHub Container Registry
 3. Connects to VM via Tailscale
-4. Pulls new image to VM
-5. Stops old container
-6. Starts new container with updated image
-7. Runs health check
-8. Cleans up old images
-
-## Monitoring
+2. Pulls latest code from GitHub
+3. Builds Docker image on VM
+4. Stops old containers
+5. Starts new containers with updated code
+6. Runs health check
+7. Cleans up old Docker
 
 ### View Container Logs
 ```bash
@@ -154,6 +173,7 @@ docker logs -f financehub-server
 ```bash
 docker ps
 docker-compose -f docker-compose.prod.yml ps
+cd ~/financehub-server/server
 ```
 
 ### Health Check
@@ -174,19 +194,14 @@ cd ~/financehub-server
 # Find previous image
 docker images financehub-server
 
-# Update docker-compose to use specific tag
-docker tag financehub-server:<previous-sha> financehub-server:latest
-docker-compose -f docker-compose.prod.yml up -d
-```
+# Check git log for previous commit
+git log --oneline -5
 
-Or manually pull a specific commit:
-```bash
-docker pull ghcr.io/<your-username>/financehub-server:main-<commit-sha>
-docker tag ghcr.io/<your-username>/financehub-server:main-<commit-sha> financehub-server:latest
-docker-compose -f docker-compose.prod.yml up -d
-```
+# Reset to previous commit
+git reset --hard <previous-commit-sha>
 
-## Database Migrations
+# Rebuild and restart
+docker-compose -f server/docker-compose.prod.yml up -d --buil
 
 Run migrations manually:
 ```bash
@@ -216,7 +231,22 @@ docker-compose -f docker-compose.prod.yml restart
 ```
 
 ### Cannot connect via Tailscale
+cd ~/financehub-server/server
+docker-compose -f docker-compose.prod.yml restart
+```
+
+### Build fails or code not updating
 ```bash
+# Pull latest code manually
+cd ~/financehub-server
+git fetch origin
+git reset --hard origin/main
+
+# Force rebuild
+cd server
+docker-compose -f docker-compose.prod.yml down
+docker-compose -f docker-compose.prod.yml build --no-cache
+docker-compose -f docker-compose.prod.yml up -d
 # On GitHub Actions runner, check Tailscale status in logs
 # On VM, verify Tailscale is running
 sudo tailscale status
@@ -224,13 +254,10 @@ sudo tailscale status
 # Verify tags on OAuth client allow 'tag:ci'
 ```
 
-### Image pull fails
-```bash
-# Authenticate Docker with GitHub Container Registry
-echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
-
-# Make package public or add VM's GitHub token
-```
+### Git clone/pull fails
+- Verify VM has access to the repository (SSH key or token configured)
+- For private repos, ensure VM's SSH key is added to GitHub
+- Check git remote URL: `cd ~/financehub-server && git remote -v`
 
 ### SSH connection fails
 - Verify SSH key is correctly added to VM's `~/.ssh/authorized_keys`

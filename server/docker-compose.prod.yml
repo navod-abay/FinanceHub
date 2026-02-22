@@ -2,6 +2,9 @@ version: '3.8'
 
 services:
   api:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: financehub-server:latest
     container_name: financehub-server
     restart: unless-stopped
