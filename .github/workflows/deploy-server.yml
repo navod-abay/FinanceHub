@@ -52,6 +52,8 @@ jobs:
             
             echo "Deployed commit: ${COMMIT_SHA}"
             
+            cd server || exit 1
+
             # Stop old containers
             echo "Stopping old containers..."
             docker compose -f docker-compose.prod.yml down || true
