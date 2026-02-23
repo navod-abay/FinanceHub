@@ -22,22 +22,18 @@ jobs:
           oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
           tags: tag:ci
 
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.VM_TAILSCALE_IP }} >> ~/.ssh/known_hosts
-
       - name: Deploy to Proxmox VM
+        uses: appleboy/ssh-action@v1.0.3
         env:
-          VM_IP: ${{ secrets.VM_TAILSCALE_IP }}
-          VM_USER: ${{ secrets.VM_SSH_USER }}
           REPO_URL: ${{ github.server_url }}/${{ github.repository }}
           BRANCH: ${{ github.ref_name }}
           COMMIT_SHA: ${{ github.sha }}
-        run: |
-          ssh ${VM_USER}@${VM_IP} << 'ENDSSH'
+        with:
+          host: ${{ secrets.VM_TAILSCALE_IP }}
+          username: ${{ secrets.VM_SSH_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          envs: REPO_URL,BRANCH,COMMIT_SHA
+          script: |
             set -e
             
             # Navigate to application directory
@@ -47,13 +43,13 @@ jobs:
             echo "Pulling latest code from repository..."
             if [ -d ".git" ]; then
               git fetch origin
-              git reset --hard origin/${{ env.BRANCH }}
+              git reset --hard origin/${BRANCH}
             else
-              git clone ${{ env.REPO_URL }} .
-              git checkout ${{ env.BRANCH }}
+              git clone ${REPO_URL} .
+              git checkout ${BRANCH}
             fi
             
-            echo "Deployed commit: ${{ env.COMMIT_SHA }}"
+            echo "Deployed commit: ${COMMIT_SHA}"
             
             # Stop old containers
             echo "Stopping old containers..."
@@ -72,7 +68,6 @@ jobs:
             docker image prune -f
             
             echo "Deployment completed successfully!"
-          ENDSSH
 
       - name: Health Check
         env:
