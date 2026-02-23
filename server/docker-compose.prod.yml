@@ -1,6 +1,25 @@
 version: '3.8'
 
 services:
+  db:
+      image: postgres:15-alpine
+      container_name: financehub-db
+      restart: unless-stopped
+      environment:
+        - POSTGRES_USER=${POSTGRES_USER:-financehub_user}
+        - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-financehub}
+        - POSTGRES_DB=${POSTGRES_DB:-financehub}
+      volumes:
+        - postgres-data:/var/lib/postgresql/data
+        - ./db_init:/docker-entrypoint-initdb.d:ro
+      networks:
+        - financehub-network
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-financehub_user}"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+
   api:
     build:
       context: .
@@ -15,6 +34,8 @@ services:
       - HOST=${HOST:-0.0.0.0}
       - PORT=${PORT:-8000}
       - DEBUG=${DEBUG:-false}
+    depends_on:
+      - db
     volumes:
       - ./data:/app/data
       - ./db_init:/app/db_init:ro
@@ -29,25 +50,7 @@ services:
       retries: 3
       start_period: 40s
 
-  db:
-    image: postgres:15-alpine
-    container_name: financehub-db
-    restart: unless-stopped
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER:-financehub_user}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-financehub}
-      - POSTGRES_DB=${POSTGRES_DB:-financehub}
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./db_init:/docker-entrypoint-initdb.d:ro
-    networks:
-      - financehub-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-financehub_user}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
+  
 networks:
   financehub-network:
     driver: bridge
