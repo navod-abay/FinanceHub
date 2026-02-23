@@ -38,7 +38,7 @@ jobs:
             set -e
             
             # Navigate to application directory
-            cd ~/financehub-server || exit 1
+            cd ~/FinanceHub || exit 1
             
             # Pull latest code
             echo "Pulling latest code from repository..."
