@@ -39,8 +39,6 @@ services:
     volumes:
       - ./data:/app/data
       - ./db_init:/app/db_init:ro
-    depends_on:
-      - db
     networks:
       - financehub-network
     healthcheck:
