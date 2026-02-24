@@ -55,7 +55,7 @@ class AtomicSyncGroupBuilder(private val database: AppDatabase) {
         
         for (expense in pendingExpenses) {
             // Create a sync group for this expense
-            val syncGroup = SyncGroup(status = "PENDING")
+            val syncGroup = SyncGroup(groupType = "EXPENSE_WITH_TAGS", status = "PENDING")
             val groupId = database.syncGroupDao().insert(syncGroup)
             
             val groupEntities = mutableListOf<SyncGroupEntity>()
@@ -147,7 +147,7 @@ class AtomicSyncGroupBuilder(private val database: AppDatabase) {
             }
             
             // Create standalone tag group
-            val syncGroup = SyncGroup(status = "PENDING")
+            val syncGroup = SyncGroup(groupType = "TAG", status = "PENDING")
             val groupId = database.syncGroupDao().insert(syncGroup)
             
             val groupEntity = SyncGroupEntity(
@@ -175,7 +175,7 @@ class AtomicSyncGroupBuilder(private val database: AppDatabase) {
         val pendingTargets = targetDao.getPendingSyncTargets()
         
         for (target in pendingTargets) {
-            val syncGroup = SyncGroup(status = "PENDING")
+            val syncGroup = SyncGroup(groupType = "TARGET", status = "PENDING")
             val groupId = database.syncGroupDao().insert(syncGroup)
             
             val groupEntity = SyncGroupEntity(
@@ -203,7 +203,7 @@ class AtomicSyncGroupBuilder(private val database: AppDatabase) {
         val pendingEdges = graphEdgeDao.getPendingSyncEdges()
         
         for (edge in pendingEdges) {
-            val syncGroup = SyncGroup(status = "PENDING")
+            val syncGroup = SyncGroup(groupType = "GRAPH_EDGE", status = "PENDING")
             val groupId = database.syncGroupDao().insert(syncGroup)
             
             val groupEntity = SyncGroupEntity(
@@ -233,7 +233,7 @@ class AtomicSyncGroupBuilder(private val database: AppDatabase) {
         val pendingWishlist = wishlistDao.getPendingSyncWishlist()
         
         for (wishlistItem in pendingWishlist) {
-            val syncGroup = SyncGroup(status = "PENDING")
+            val syncGroup = SyncGroup(groupType = "WISHLIST_WITH_TAGS", status = "PENDING")
             val groupId = database.syncGroupDao().insert(syncGroup)
             
             val groupEntities = mutableListOf<SyncGroupEntity>()
