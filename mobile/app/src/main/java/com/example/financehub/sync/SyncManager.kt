@@ -175,18 +175,23 @@ class SyncManager constructor(
             }
             
             // Send atomic sync request
-            val request = AtomicSyncRequest(groups = atomicGroups)
+            val request = AtomicSyncRequest(
+                groups = atomicGroups,
+                clientTimestamp = System.currentTimeMillis()
+            )
             val response = apiService.atomicSync(request)
             
             if (response.isSuccessful) {
                 val responseBody = response.body()
                 if (responseBody != null) {
-                    Log.d(TAG, "Atomic sync completed: ${responseBody.successfulGroups}/${responseBody.totalGroups} groups succeeded")
+                    val totalGroups = responseBody.groupResults.size
+                    val successfulGroups = responseBody.groupResults.count { it.success }
+                    Log.d(TAG, "Atomic sync completed: $successfulGroups/$totalGroups groups succeeded")
                     
                     // Process results
                     processAtomicSyncResults(groupIds, responseBody)
                     
-                    return SyncResult.success("Synced ${responseBody.successfulGroups}/${responseBody.totalGroups} groups")
+                    return SyncResult.success("Synced $successfulGroups/$totalGroups groups")
                 } else {
                     return SyncResult.failure("Empty response from server")
                 }
@@ -206,6 +211,7 @@ class SyncManager constructor(
      */
     private suspend fun buildAtomicSyncGroup(groupId: Long): AtomicSyncGroup? {
         try {
+            val syncGroup = database.syncGroupDao().getById(groupId) ?: return null
             val groupEntities = database.syncGroupEntityDao().getEntitiesForGroup(groupId)
             if (groupEntities.isEmpty()) {
                 return null
@@ -267,13 +273,17 @@ class SyncManager constructor(
             }
             
             return AtomicSyncGroup(
-                expenses = expenses,
-                tags = tags,
-                targets = targets,
-                expenseTags = expenseTags,
-                graphEdges = graphEdges,
-                wishlist = wishlist,
-                wishlistTags = wishlistTags
+                groupId = groupId.toString(),
+                groupType = syncGroup.groupType,
+                operations = com.example.financehub.network.models.AtomicSyncGroupOperations(
+                    expenses = expenses,
+                    tags = tags,
+                    targets = targets,
+                    expenseTags = expenseTags,
+                    graphEdges = graphEdges,
+                    wishlist = wishlist,
+                    wishlistTags = wishlistTags
+                )
             )
             
         } catch (e: Exception) {
@@ -504,7 +514,7 @@ class SyncManager constructor(
                 
             } else {
                 // Mark group as failed
-                val errorMsg = groupResult.errors.joinToString("; ")
+                val errorMsg = groupResult.error.toString()
                 database.syncGroupDao().updateStatus(
                     groupId = groupId,
                     status = "FAILED",

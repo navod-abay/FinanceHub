@@ -326,7 +326,6 @@ data class DeleteGraphEdgeBatchRequest(
 
 @Serializable
 sealed interface WishlistTagOperation {
-    val type: String
     val wishlistId: Int
     val tagId: String
 }
@@ -334,7 +333,6 @@ sealed interface WishlistTagOperation {
 @Serializable
 @SerialName("create_wishlist_tag")
 data class CreateWishlistTagBatchRequest(
-    override val type: String = "create_wishlist_tag",
     override val wishlistId: Int,
     override val tagId: String,
     val clientId: String
@@ -343,7 +341,6 @@ data class CreateWishlistTagBatchRequest(
 @Serializable
 @SerialName("delete_wishlist_tag")
 data class DeleteWishlistTagBatchRequest(
-    override val type: String = "delete_wishlist_tag",
     override val wishlistId: Int,
     override val tagId: String,
     val serverId: String? = null
@@ -355,14 +352,11 @@ data class BatchSyncWishlistTagsRequest(
 )
 
 @Serializable
-sealed interface WishlistOperation {
-    val type: String
-}
+sealed interface WishlistOperation
 
 @Serializable
 @SerialName("create_wishlist")
 data class CreateWishlistBatchRequest(
-    override val type: String = "create_wishlist",
     val name: String,
     val minPrice: Int? = null,
     val maxPrice: Int? = null,
@@ -373,7 +367,6 @@ data class CreateWishlistBatchRequest(
 @Serializable
 @SerialName("update_wishlist")
 data class UpdateWishlistBatchRequest(
-    override val type: String = "update_wishlist",
     val serverId: String,
     val name: String? = null,
     val minPrice: Int? = null,
@@ -384,7 +377,6 @@ data class UpdateWishlistBatchRequest(
 @Serializable
 @SerialName("delete_wishlist")
 data class DeleteWishlistBatchRequest(
-    override val type: String = "delete_wishlist",
     val serverId: String
 ) : WishlistOperation
 
@@ -541,12 +533,15 @@ data class EntityMappingResponse(
  * Result of processing one atomic group.
  * A group either fully succeeds or fully fails.
  */
+
+
 @Serializable
 data class AtomicGroupResult(
+    @SerialName("groupId") val groupId: String,
     val success: Boolean,
-    @SerialName("group_number") val groupNumber: Int,
-    val errors: List<String> = emptyList(),
-    @SerialName("entity_mappings") val entityMappings: List<EntityMappingResponse> = emptyList()
+    val error: String? = null,
+    @SerialName("entityMappings") val entityMappings: List<EntityMappingResponse> = emptyList(),
+    @SerialName("rolledBack") val rolledBack: Boolean = false
 )
 
 /**
@@ -555,10 +550,8 @@ data class AtomicGroupResult(
  */
 @Serializable
 data class AtomicSyncResponse(
-    @SerialName("group_results") val groupResults: List<AtomicGroupResult>,
-    @SerialName("total_groups") val totalGroups: Int,
-    @SerialName("successful_groups") val successfulGroups: Int,
-    @SerialName("failed_groups") val failedGroups: Int
+    @SerialName("groupResults") val groupResults: List<AtomicGroupResult>,
+    @SerialName("serverTimestamp") val serverTimestamp: Long
 )
 
 /**
@@ -566,7 +559,7 @@ data class AtomicSyncResponse(
  * All operations in a group are processed atomically.
  */
 @Serializable
-data class AtomicSyncGroup(
+data class AtomicSyncGroupOperations(
     val expenses: List<ExpenseOperation> = emptyList(),
     val tags: List<TagOperation> = emptyList(),
     val targets: List<TargetOperation> = emptyList(),
@@ -576,11 +569,20 @@ data class AtomicSyncGroup(
     @SerialName("wishlist_tags") val wishlistTags: List<WishlistTagOperation> = emptyList()
 )
 
+@Serializable
+data class AtomicSyncGroup(
+    @SerialName("groupId") val groupId: String,
+    @SerialName("groupType") val groupType: String,
+    val operations: AtomicSyncGroupOperations
+)
+
 /**
  * Request for atomic sync.
  * Contains multiple groups that are processed independently.
  */
 @Serializable
 data class AtomicSyncRequest(
-    val groups: List<AtomicSyncGroup>
+    val groups: List<AtomicSyncGroup>,
+    @SerialName("clientTimestamp") val clientTimestamp: Long,
+    @SerialName("deviceId") val deviceId: String? = null
 )
