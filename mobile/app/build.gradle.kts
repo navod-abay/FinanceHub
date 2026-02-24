@@ -22,7 +22,15 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000/\"")
+            buildConfigField("String", "API_ENDPOINT", "\"http://10.0.2.2:8000/api/v1/\"")
+            buildConfigField("boolean", "IS_PRODUCTION", "false")
+        }
         release {
+            buildConfigField("String", "API_BASE_URL", "\"http://192.168.1.101:8000/\"")
+            buildConfigField("String", "API_ENDPOINT", "\"http://192.168.1.101:8000/api/v1/\"")
+            buildConfigField("boolean", "IS_PRODUCTION", "true")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -39,6 +47,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

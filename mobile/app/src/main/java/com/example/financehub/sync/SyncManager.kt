@@ -49,6 +49,7 @@ import com.example.financehub.data.database.WishlistTagsCrossRef
 import com.example.financehub.network.models.AtomicSyncGroup
 import com.example.financehub.network.models.AtomicSyncRequest
 import com.example.financehub.network.models.AtomicSyncResponse
+import com.example.financehub.network.models.SyncOperation as NetworkSyncOperation
 import com.example.financehub.network.models.ExpenseOperation
 import com.example.financehub.network.models.ExpenseTagOperation
 import com.example.financehub.network.models.GraphEdgeOperation
@@ -272,18 +273,20 @@ class SyncManager constructor(
                 }
             }
             
+            // Flatten all operations into a single list for the server
+            val allOperations = mutableListOf<NetworkSyncOperation>()
+            allOperations.addAll(expenses)
+            allOperations.addAll(tags)
+            allOperations.addAll(targets)
+            allOperations.addAll(expenseTags)
+            allOperations.addAll(graphEdges)
+            allOperations.addAll(wishlist)
+            allOperations.addAll(wishlistTags)
+            
             return AtomicSyncGroup(
                 groupId = groupId.toString(),
                 groupType = syncGroup.groupType,
-                operations = com.example.financehub.network.models.AtomicSyncGroupOperations(
-                    expenses = expenses,
-                    tags = tags,
-                    targets = targets,
-                    expenseTags = expenseTags,
-                    graphEdges = graphEdges,
-                    wishlist = wishlist,
-                    wishlistTags = wishlistTags
-                )
+                operations = allOperations
             )
             
         } catch (e: Exception) {
