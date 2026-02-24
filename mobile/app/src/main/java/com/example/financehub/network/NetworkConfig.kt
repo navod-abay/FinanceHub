@@ -1,5 +1,7 @@
 package com.example.financehub.network
 
+import android.util.Log
+import com.example.financehub.BuildConfig
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -10,12 +12,18 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Network configuration for the com.example.financehub.FinanceHub API
+ * 
+ * Uses BuildConfig to automatically switch between:
+ * - Debug: Local server at 10.0.2.2 (Android emulator localhost)
+ * - Release: Production server IP
  */
 object NetworkConfig {
     
-    // Server configuration - update IP address to match your server
-    private const val BASE_URL = "http://192.168.1.101:8000/" // Replace with your server IP
-    private const val API_BASE_URL = "${BASE_URL}api/v1/"
+    private const val TAG = "NetworkConfig"
+    
+    // Server configuration from BuildConfig (automatically switches based on build type)
+    private val BASE_URL = BuildConfig.API_BASE_URL
+    private val API_BASE_URL = BuildConfig.API_ENDPOINT
     
     // Timeouts
     private const val CONNECT_TIMEOUT = 10L // seconds
@@ -36,8 +44,17 @@ object NetworkConfig {
      */
     private val okHttpClient: OkHttpClient by lazy {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BODY
+            } else {
+                HttpLoggingInterceptor.Level.BASIC
+            }
         }
+        
+        Log.d(TAG, "Initializing network client")
+        Log.d(TAG, "Base URL: $BASE_URL")
+        Log.d(TAG, "API URL: $API_BASE_URL")
+        Log.d(TAG, "Is Production: ${BuildConfig.IS_PRODUCTION}")
         
         OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)

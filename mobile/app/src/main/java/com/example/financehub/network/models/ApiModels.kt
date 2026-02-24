@@ -189,8 +189,15 @@ data class SummaryStatsResponse(
 
 // Batch Sync Models
 
+/**
+ * Base sealed interface for all sync operations.
+ * Server expects a flat list of operations with type discriminator.
+ */
 @Serializable
-sealed interface ExpenseOperation
+sealed interface SyncOperation
+
+@Serializable
+sealed interface ExpenseOperation : SyncOperation
 
 @Serializable
 @SerialName("create_expense")
@@ -223,7 +230,7 @@ data class DeleteExpenseBatchRequest(
 ) : ExpenseOperation
 
 @Serializable
-sealed interface TagOperation
+sealed interface TagOperation : SyncOperation
 
 @Serializable
 @SerialName("create_tag")
@@ -255,7 +262,7 @@ data class DeleteTagBatchRequest(
 ) : TagOperation
 
 @Serializable
-sealed interface TargetOperation
+sealed interface TargetOperation : SyncOperation
 
 @Serializable
 @SerialName("create_target")
@@ -283,7 +290,7 @@ data class DeleteTargetBatchRequest(
 ) : TargetOperation
 
 @Serializable
-sealed interface ExpenseTagOperation
+sealed interface ExpenseTagOperation : SyncOperation
 
 @Serializable
 @SerialName("create_expense_tag")
@@ -300,7 +307,7 @@ data class DeleteExpenseTagBatchRequest(
 ) : ExpenseTagOperation
 
 @Serializable
-sealed interface GraphEdgeOperation
+sealed interface GraphEdgeOperation : SyncOperation
 
 @Serializable
 @SerialName("create_graph_edge")
@@ -325,7 +332,7 @@ data class DeleteGraphEdgeBatchRequest(
 ) : GraphEdgeOperation
 
 @Serializable
-sealed interface WishlistTagOperation {
+sealed interface WishlistTagOperation : SyncOperation {
     val wishlistId: Int
     val tagId: String
 }
@@ -352,7 +359,7 @@ data class BatchSyncWishlistTagsRequest(
 )
 
 @Serializable
-sealed interface WishlistOperation
+sealed interface WishlistOperation : SyncOperation
 
 @Serializable
 @SerialName("create_wishlist")
@@ -557,23 +564,13 @@ data class AtomicSyncResponse(
 /**
  * A single atomic sync group containing related operations.
  * All operations in a group are processed atomically.
+ * Operations are sent as a flat list with type discriminators.
  */
-@Serializable
-data class AtomicSyncGroupOperations(
-    val expenses: List<ExpenseOperation> = emptyList(),
-    val tags: List<TagOperation> = emptyList(),
-    val targets: List<TargetOperation> = emptyList(),
-    @SerialName("expense_tags") val expenseTags: List<ExpenseTagOperation> = emptyList(),
-    @SerialName("graph_edges") val graphEdges: List<GraphEdgeOperation> = emptyList(),
-    val wishlist: List<WishlistOperation> = emptyList(),
-    @SerialName("wishlist_tags") val wishlistTags: List<WishlistTagOperation> = emptyList()
-)
-
 @Serializable
 data class AtomicSyncGroup(
     @SerialName("groupId") val groupId: String,
     @SerialName("groupType") val groupType: String,
-    val operations: AtomicSyncGroupOperations
+    val operations: List<SyncOperation>
 )
 
 /**
