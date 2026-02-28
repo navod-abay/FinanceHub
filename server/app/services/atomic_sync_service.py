@@ -11,7 +11,8 @@ import logging
 
 from ..models import (
     Expense, Tag, Target, ExpenseTagsCrossRef,
-    GraphEdge, WishlistItem, WishlistTagsCrossRef
+    GraphEdge, WishlistItem, WishlistTagsCrossRef,
+    EntityMapping as EntityMappingModel
 )
 from ..schemas import (
     CreateExpenseBatchRequest,
@@ -53,6 +54,41 @@ class AtomicSyncService:
     def __init__(self, db: Session):
         self.db = db
         self.entity_mappings: Dict[str, str] = {}  # clientId -> serverId within current group
+    
+    # Idempotency helpers
+    def _get_persistent_mapping(self, entity_type: str, client_id: str) -> Optional[str]:
+        """
+        Check if a persistent mapping exists for this client_id.
+        Returns server_id if found, None otherwise.
+        """
+        mapping = self.db.query(EntityMappingModel).filter(
+            EntityMappingModel.entity_type == entity_type,
+            EntityMappingModel.client_id == client_id
+        ).first()
+        
+        if mapping:
+            logger.debug(f"Found persistent mapping: {entity_type}:{client_id} -> {mapping.server_id}")
+            return mapping.server_id
+        return None
+    
+    def _save_persistent_mapping(self, entity_type: str, client_id: str, server_id: str) -> None:
+        """
+        Save a persistent mapping. Handles race conditions gracefully.
+        If mapping already exists (e.g., concurrent request), silently ignore.
+        """
+        try:
+            mapping = EntityMappingModel(
+                entity_type=entity_type,
+                client_id=client_id,
+                server_id=server_id
+            )
+            self.db.add(mapping)
+            self.db.flush()
+            logger.debug(f"Saved persistent mapping: {entity_type}:{client_id} -> {server_id}")
+        except exc.IntegrityError:
+            # Mapping already exists (race condition) - that's fine, the operation was idempotent
+            logger.debug(f"Mapping already exists: {entity_type}:{client_id} (concurrent request)")
+            self.db.rollback()
         
     def process_groups(
         self,
@@ -172,6 +208,18 @@ class AtomicSyncService:
     
     # Expense operations
     def _create_expense(self, operation: CreateExpenseBatchRequest) -> EntityMapping:
+        # Check for existing mapping (idempotency)
+        existing_id = self._get_persistent_mapping("expense", operation.client_id)
+        if existing_id:
+            logger.info(f"Expense already exists for client_id {operation.client_id}, returning existing server_id {existing_id}")
+            self.entity_mappings[operation.client_id] = existing_id
+            return EntityMapping(
+                entity_type="expense",
+                client_id=operation.client_id,
+                server_id=existing_id
+            )
+        
+        # Create new expense
         new_expense = Expense(
             title=operation.title,
             amount=operation.amount,
@@ -183,6 +231,9 @@ class AtomicSyncService:
         )
         self.db.add(new_expense)
         self.db.flush()
+        
+        # Save persistent mapping
+        self._save_persistent_mapping("expense", operation.client_id, str(new_expense.id))
         
         # Track mapping for use in same group
         self.entity_mappings[operation.client_id] = new_expense.id
@@ -217,6 +268,18 @@ class AtomicSyncService:
     
     # Tag operations
     def _create_tag(self, operation: CreateTagBatchRequest) -> EntityMapping:
+        # Check for existing mapping (idempotency)
+        existing_id = self._get_persistent_mapping("tag", operation.client_id)
+        if existing_id:
+            logger.info(f"Tag already exists for client_id {operation.client_id}, returning existing server_id {existing_id}")
+            self.entity_mappings[operation.client_id] = existing_id
+            return EntityMapping(
+                entity_type="tag",
+                client_id=operation.client_id,
+                server_id=existing_id
+            )
+        
+        # Create new tag
         new_tag = Tag(
             tag=operation.name,  # Fixed: use 'tag' field, not 'name'
             monthly_amount=operation.monthly_amount,
@@ -230,6 +293,9 @@ class AtomicSyncService:
         )
         self.db.add(new_tag)
         self.db.flush()
+        
+        # Save persistent mapping
+        self._save_persistent_mapping("tag", operation.client_id, str(new_tag.id))
         
         self.entity_mappings[operation.client_id] = new_tag.id
         
@@ -262,6 +328,16 @@ class AtomicSyncService:
     
     # ExpenseTag operations
     def _create_expense_tag(self, operation: CreateExpenseTagBatchRequest) -> EntityMapping:
+        # Check for existing mapping (idempotency)
+        existing_id = self._get_persistent_mapping("expense_tag", operation.client_id)
+        if existing_id:
+            logger.info(f"ExpenseTag already exists for client_id {operation.client_id}, returning existing server_id {existing_id}")
+            return EntityMapping(
+                entity_type="expense_tag",
+                client_id=operation.client_id,
+                server_id=existing_id
+            )
+        
         # Resolve IDs (might be from earlier in this group)
         expense_id = self._resolve_id(operation.expense_id, "expense")
         tag_id = self._resolve_id(operation.tag_id, "tag")
@@ -274,6 +350,9 @@ class AtomicSyncService:
         )
         self.db.add(new_expense_tag)
         self.db.flush()
+        
+        # Save persistent mapping
+        self._save_persistent_mapping("expense_tag", operation.client_id, str(new_expense_tag.id))
         
         return EntityMapping(
             entity_type="expense_tag",
@@ -293,6 +372,16 @@ class AtomicSyncService:
     
     # Target operations
     def _create_target(self, operation: CreateTargetBatchRequest) -> EntityMapping:
+        # Check for existing mapping (idempotency)
+        existing_id = self._get_persistent_mapping("target", operation.client_id)
+        if existing_id:
+            logger.info(f"Target already exists for client_id {operation.client_id}, returning existing server_id {existing_id}")
+            return EntityMapping(
+                entity_type="target",
+                client_id=operation.client_id,
+                server_id=existing_id
+            )
+        
         # Resolve tag ID
         tag_id = self._resolve_id(operation.tag_id, "tag")
         
@@ -307,6 +396,9 @@ class AtomicSyncService:
         )
         self.db.add(new_target)
         self.db.flush()
+        
+        # Save persistent mapping
+        self._save_persistent_mapping("target", operation.client_id, str(new_target.id))
         
         return EntityMapping(
             entity_type="target",
@@ -335,6 +427,16 @@ class AtomicSyncService:
     
     # GraphEdge operations
     def _create_graph_edge(self, operation: CreateGraphEdgeBatchRequest) -> EntityMapping:
+        # Check for existing mapping (idempotency)
+        existing_id = self._get_persistent_mapping("graph_edge", operation.client_id)
+        if existing_id:
+            logger.info(f"GraphEdge already exists for client_id {operation.client_id}, returning existing server_id {existing_id}")
+            return EntityMapping(
+                entity_type="graph_edge",
+                client_id=operation.client_id,
+                server_id=existing_id
+            )
+        
         # Resolve tag IDs
         from_tag_id = self._resolve_id(operation.from_tag_id, "tag")
         to_tag_id = self._resolve_id(operation.to_tag_id, "tag")
@@ -348,6 +450,9 @@ class AtomicSyncService:
         )
         self.db.add(new_edge)
         self.db.flush()
+        
+        # Save persistent mapping
+        self._save_persistent_mapping("graph_edge", operation.client_id, str(new_edge.id))
         
         return EntityMapping(
             entity_type="graph_edge",
@@ -375,6 +480,18 @@ class AtomicSyncService:
     
     # Wishlist operations
     def _create_wishlist(self, operation: CreateWishlistBatchRequest) -> EntityMapping:
+        # Check for existing mapping (idempotency)
+        existing_id = self._get_persistent_mapping("wishlist", operation.client_id)
+        if existing_id:
+            logger.info(f"Wishlist already exists for client_id {operation.client_id}, returning existing server_id {existing_id}")
+            self.entity_mappings[operation.client_id] = existing_id
+            return EntityMapping(
+                entity_type="wishlist",
+                client_id=operation.client_id,
+                server_id=existing_id
+            )
+        
+        # Create new wishlist
         new_wishlist = WishlistItem(
             name=operation.name,
             expected_price=operation.expected_price,
@@ -383,6 +500,9 @@ class AtomicSyncService:
         )
         self.db.add(new_wishlist)
         self.db.flush()
+        
+        # Save persistent mapping
+        self._save_persistent_mapping("wishlist", operation.client_id, str(new_wishlist.id))
         
         self.entity_mappings[operation.client_id] = new_wishlist.id
         
@@ -413,6 +533,16 @@ class AtomicSyncService:
     
     # WishlistTag operations
     def _create_wishlist_tag(self, operation: CreateWishlistTagBatchRequest) -> EntityMapping:
+        # Check for existing mapping (idempotency)
+        existing_id = self._get_persistent_mapping("wishlist_tag", operation.client_id)
+        if existing_id:
+            logger.info(f"WishlistTag already exists for client_id {operation.client_id}, returning existing server_id {existing_id}")
+            return EntityMapping(
+                entity_type="wishlist_tag",
+                client_id=operation.client_id,
+                server_id=existing_id
+            )
+        
         # Resolve IDs
         wishlist_id = self._resolve_id(operation.wishlist_id, "wishlist")
         tag_id = self._resolve_id(operation.tag_id, "tag")
@@ -425,6 +555,9 @@ class AtomicSyncService:
         )
         self.db.add(new_wishlist_tag)
         self.db.flush()
+        
+        # Save persistent mapping
+        self._save_persistent_mapping("wishlist_tag", operation.client_id, str(new_wishlist_tag.id))
         
         return EntityMapping(
             entity_type="wishlist_tag",
@@ -445,11 +578,18 @@ class AtomicSyncService:
     def _resolve_id(self, client_id: str, entity_type: str) -> str:
         """
         Resolve client ID to server ID.
-        First checks current group mappings, then assumes it's already a server ID.
+        1. Check current group mappings
+        2. Check persistent mappings
+        3. Assume it's already a server ID (from previous sync)
         """
         # Check if we created this in current group
         if client_id in self.entity_mappings:
             return self.entity_mappings[client_id]
+        
+        # Check persistent mappings
+        persistent_id = self._get_persistent_mapping(entity_type, client_id)
+        if persistent_id:
+            return persistent_id
         
         # Assume it's already a server ID (from previous sync)
         return client_id

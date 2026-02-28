@@ -1,5 +1,6 @@
 package com.example.financehub.network
 
+import com.example.financehub.BuildConfig
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -13,9 +14,9 @@ import java.util.concurrent.TimeUnit
  */
 object NetworkConfig {
     
-    // Server configuration - update IP address to match your server
-    private const val BASE_URL = "http://192.168.1.101:8000/" // Replace with your server IP
-    private const val API_BASE_URL = "${BASE_URL}api/v1/"
+    // Server configuration - using values from build.gradle.kts
+    private val BASE_URL = BuildConfig.BASE_URL
+    private val API_BASE_URL = "${BASE_URL}api/v1/"
     
     // Timeouts
     private const val CONNECT_TIMEOUT = 10L // seconds

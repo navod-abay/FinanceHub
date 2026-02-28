@@ -28,7 +28,7 @@ import com.example.financehub.data.dao.EntityMappingDao
         SyncGroupEntity::class,
         EntityMapping::class
     ],
-    version = 18
+    version = 1
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao

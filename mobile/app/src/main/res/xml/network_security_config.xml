@@ -12,6 +12,7 @@
     <!-- allow cleartext to the local IP used in development -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="false">192.168.1.101</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
     </domain-config>
 
     <!-- optional: allow for any 192.168.x.x (broader) - uncomment if needed -->
