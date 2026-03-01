@@ -264,7 +264,7 @@ class AtomicSyncService:
         self._save_persistent_mapping("expense", operation.client_id, str(new_expense.id))
         
         # Track mapping for use in same group
-        self.entity_mappings[operation.client_id] = new_expense.id
+        self.entity_mappings[f"expense:{operation.client_id}"] = new_expense.id
         
         return EntityMapping(
             entity_type="expense",
@@ -611,8 +611,9 @@ class AtomicSyncService:
         3. Assume it's already a server ID (from previous sync)
         """
         # Check if we created this in current group
-        if client_id in self.entity_mappings:
-            return self.entity_mappings[client_id]
+        mapping_key = f"{entity_type}:{client_id}"
+        if mapping_key in self.entity_mappings:
+            return self.entity_mappings[mapping_key]
         
         # Check persistent mappings
         persistent_id = self._get_persistent_mapping(entity_type, client_id)
