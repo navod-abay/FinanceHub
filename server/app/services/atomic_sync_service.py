@@ -115,24 +115,48 @@ class AtomicSyncService:
         Process one atomic group in a savepoint.
         All operations succeed or all rollback.
         """
+        group_start = datetime.utcnow()
+        
         # Start savepoint for this group
         savepoint = self.db.begin_nested()
         
         try:
             entity_mappings = []
             
-            logger.info(f"Processing group {group.group_id} with {len(group.operations)} operations")
+            # Count operation types for logging
+            operation_types = {}
+            for op in group.operations:
+                op_type = type(op).__name__
+                operation_types[op_type] = operation_types.get(op_type, 0) + 1
+            
+            logger.info(
+                f"Processing group {group.group_id}\n"
+                f"  Operations: {len(group.operations)}\n"
+                f"  Types: {operation_types}"
+            )
             
             # Process operations in sequence
-            for operation in group.operations:
+            for idx, operation in enumerate(group.operations):
+                op_type = type(operation).__name__
+                logger.debug(f"  [{idx+1}/{len(group.operations)}] Processing {op_type}")
+                
                 mapping = self._process_operation(operation, group.group_id)
                 if mapping:
                     entity_mappings.append(mapping)
+                    logger.debug(
+                        f"    ✓ Created mapping: {mapping.entity_type} "
+                        f"{mapping.client_id} -> {mapping.server_id}"
+                    )
             
             # All succeeded - commit savepoint
             savepoint.commit()
             
-            logger.info(f"Group {group.group_id} succeeded with {len(entity_mappings)} mappings")
+            duration_ms = (datetime.utcnow() - group_start).total_seconds() * 1000
+            logger.info(
+                f"✅ Group {group.group_id} succeeded\n"
+                f"  Mappings: {len(entity_mappings)}\n"
+                f"  Duration: {duration_ms:.2f}ms"
+            )
             
             return AtomicGroupResult(
                 group_id=group.group_id,
@@ -145,8 +169,12 @@ class AtomicSyncService:
             # Rollback this group's savepoint
             savepoint.rollback()
             
+            duration_ms = (datetime.utcnow() - group_start).total_seconds() * 1000
             logger.error(
-                f"Group {group.group_id} failed: {str(e)}",
+                f"❌ Group {group.group_id} failed\n"
+                f"  Error: {str(e)}\n"
+                f"  Error Type: {type(e).__name__}\n"
+                f"  Duration: {duration_ms:.2f}ms",
                 exc_info=True
             )
             

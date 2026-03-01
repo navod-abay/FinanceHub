@@ -258,13 +258,13 @@ class SyncManager constructor(
                         }
                     }
                     "wishlist" -> {
-                        val wishlistItem = database.wishlistDao().getWishlistById(entityRef.localId.toString())
+                        val wishlistItem = database.wishlistDao().getWishlistById(entityRef.localId.toInt())
                         if (wishlistItem != null) {
                             wishlist.add(buildWishlistOperation(wishlistItem, entityRef.operation))
                         }
                     }
                     "wishlist_tag" -> {
-                        val wishlistTag = database.wishlistTagsDao().getWishlistTagById(entityRef.localId.toString())
+                        val wishlistTag = database.wishlistTagsDao().findUniqueWishlistTagByStringId(entityRef.localId.toString())
                         if (wishlistTag != null) {
                             wishlistTags.add(buildWishlistTagOperation(wishlistTag, entityRef.operation))
                         }
@@ -737,7 +737,7 @@ class SyncManager constructor(
                     "CREATE" -> CreateTargetBatchRequest(
                         month = target.month,
                         year = target.year,
-                        tagId = target.tagID.toString(),
+                        tagId = target.serverId ?: target.tagID.toString(),
                         amount = target.amount,
                         spent = target.spent,
                         clientId = "${target.month}-${target.year}-${target.tagID}"

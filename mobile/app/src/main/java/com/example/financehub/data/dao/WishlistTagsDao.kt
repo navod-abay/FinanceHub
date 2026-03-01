@@ -20,13 +20,13 @@ interface WishlistTagsDao {
     suspend fun getPendingSyncWishlistTags(): List<WishlistTagsCrossRef>
 
     @Query("SELECT * FROM wishlist_tags WHERE id = :id")
-    suspend fun getWishlistTagById(id: String): WishlistTagsCrossRef?
+    suspend fun findUniqueWishlistTagByStringId(id: String): WishlistTagsCrossRef?
 
     @Query("UPDATE wishlist_tags SET pendingSync = 1, syncOperation = :operation, updatedAt = :timestamp WHERE wishlistId = :wishlistId AND tagID = :tagId")
     suspend fun markForSync(wishlistId: Int, tagId: Int, operation: String, timestamp: Long)
 
     @Query("UPDATE wishlist_tags SET serverId = :serverId, lastSyncedAt = :lastSyncedAt, pendingSync = :pendingSync, syncOperation = :syncOperation WHERE id = :id")
-    suspend fun updateSyncMetadata(id: String, serverId: String?, lastSyncedAt: Long, pendingSync: Boolean, syncOperation: String?)
+    suspend fun updateSyncMetadata(id: String, serverId: String?, lastSyncedAt: Long?, pendingSync: Boolean, syncOperation: String?)
     
     @Query("SELECT * FROM wishlist_tags WHERE serverId = :serverId LIMIT 1")
     suspend fun getWishlistTagByServerId(serverId: String): WishlistTagsCrossRef?
@@ -41,7 +41,4 @@ interface WishlistTagsDao {
     
     @Query("SELECT * FROM wishlist_tags WHERE wishlistId = :wishlistId")
     suspend fun getWishlistTagsByWishlistId(wishlistId: Int): List<WishlistTagsCrossRef>
-    
-    @Query("SELECT * FROM wishlist_tags WHERE wishlistId = :wishlistId")
-    suspend fun getTagsForWishlist(wishlistId: String): List<WishlistTagsCrossRef>
 }

@@ -4,7 +4,7 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2026-02-28T08:17:22.900116300Z">
+        <DropdownSelection timestamp="2026-02-28T09:19:16.958195100Z">
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\dell\.android\avd\Wanna_be_my_phone.avd" />
