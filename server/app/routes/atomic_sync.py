@@ -31,6 +31,7 @@ async def atomic_sync(
     - Or all operations in a group fail and rollback together
     - Groups are independent of each other
     """
+    logger.info("[ATOMIC_SYNC] ===== VALIDATION PASSED - ENTERED ROUTE HANDLER =====")
     start_time = time.time()
     
     try:
@@ -58,17 +59,59 @@ async def atomic_sync(
         
         service = AtomicSyncService(db)
         
+        logger.info("[DB] Starting group processing...")
         # Process all groups
         group_results = service.process_groups(
             groups=request.groups,
             client_timestamp=request.client_timestamp
         )
         
-        # Commit outer transaction (all savepoints already committed/rolled back)
-        db.commit()
+        logger.info(f"[OUTER COMMIT] ========== ALL GROUPS PROCESSED ==========")
+        logger.info(f"[DB PRE-OUTER-COMMIT] Session state - dirty: {len(db.dirty)}, new: {len(db.new)}, deleted: {len(db.deleted)}")
+        logger.info(f"[DB PRE-OUTER-COMMIT] Session in transaction: {db.in_transaction()}")
+        logger.info(f"[DB PRE-OUTER-COMMIT] Session is active: {db.is_active}")
         
-        # Count successes and failures
+        # Commit outer transaction (all savepoints already committed/rolled back)
+        logger.info("[OUTER COMMIT] Calling db.commit() on outer transaction...")
+        db.commit()
+        logger.info("[OUTER COMMIT] ✓✓✓ OUTER TRANSACTION COMMITTED ✓✓✓")
+        
+        logger.info(f"[DB POST-OUTER-COMMIT] Session state - dirty: {len(db.dirty)}, new: {len(db.new)}, deleted: {len(db.deleted)}")
+        logger.info(f"[DB POST-OUTER-COMMIT] Session in transaction: {db.in_transaction()}")
+        logger.info(f"[DB POST-OUTER-COMMIT] Session is active: {db.is_active}")
+        
+        # Count successes for verification
         success_count = sum(1 for r in group_results if r.success)
+        
+        # Verify data was written (for debugging)
+        logger.info("[DB VERIFY] ========== VERIFYING DATA IN DATABASE ==========")
+        if success_count > 0:
+            try:
+                from ..models import Expense, Tag, ExpenseTagsCrossRef
+                logger.info("[DB VERIFY] Querying database for counts...")
+                expense_count = db.query(Expense).count()
+                logger.info(f"[DB VERIFY] Expense query returned: {expense_count}")
+                tag_count = db.query(Tag).count()
+                logger.info(f"[DB VERIFY] Tag query returned: {tag_count}")
+                expense_tag_count = db.query(ExpenseTagsCrossRef).count()
+                logger.info(f"[DB VERIFY] ExpenseTag query returned: {expense_tag_count}")
+                
+                logger.info(f"[DB VERIFY] ✓ TOTALS - Expenses: {expense_count}, Tags: {tag_count}, ExpenseTags: {expense_tag_count}")
+                
+                # Query specific items created in this sync
+                if expense_count > 0:
+                    recent = db.query(Expense).order_by(Expense.created_at.desc()).limit(3).all()
+                    logger.info(f"[DB VERIFY] Recent expenses: {[f'{e.id}:{e.title}' for e in recent]}")
+                if tag_count > 0:
+                    recent_tags = db.query(Tag).order_by(Tag.created_at.desc()).limit(3).all()
+                    logger.info(f"[DB VERIFY] Recent tags: {[f'{t.id}:{t.tag}' for t in recent_tags]}")
+                
+                # Commit the read transaction to avoid rollback warning on session close
+                db.commit()
+            except Exception as e:
+                logger.error(f"[DB VERIFY] ERROR during verification: {e}", exc_info=True)
+        
+        # Count failures
         failure_count = len(group_results) - success_count
         
         # Log detailed results
@@ -107,7 +150,9 @@ async def atomic_sync(
         
     except Exception as e:
         elapsed_ms = (time.time() - start_time) * 1000
+        logger.error(f"[DB] Exception caught - performing ROLLBACK")
         db.rollback()
+        logger.error(f"[DB] ✓ Rollback completed")
         logger.error(
             f"========== ATOMIC SYNC FATAL ERROR ==========\n"
             f"Error: {str(e)}\n"

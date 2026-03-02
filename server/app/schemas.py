@@ -362,7 +362,8 @@ class ApiGraphEdge(BaseModel):
 # Wishlist Models
 class WishlistItemBase(BaseModel):
     name: str
-    expected_price: int = Field(alias="expectedPrice")
+    min_price: int = Field(alias="minPrice")
+    max_price: int = Field(alias="maxPrice")
     # tag_id removed
 
     class Config:
@@ -411,7 +412,8 @@ class ApiWishlistTag(BaseModel):
 class CreateWishlistBatchRequest(BaseModel):
     type: Literal["create_wishlist"]
     name: str
-    expected_price: int = Field(..., alias="expectedPrice")
+    min_price: int = Field(..., alias="minPrice")
+    max_price: int = Field(..., alias="maxPrice")
     client_id: str = Field(..., alias="clientId")
     
     class Config:
@@ -421,7 +423,8 @@ class UpdateWishlistBatchRequest(BaseModel):
     type: Literal["update_wishlist"]
     server_id: str = Field(..., alias="serverId")
     name: str
-    expected_price: int = Field(..., alias="expectedPrice")
+    min_price: int = Field(..., alias="minPrice")
+    max_price: int = Field(..., alias="maxPrice")
     
     class Config:
         populate_by_name = True

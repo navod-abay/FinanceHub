@@ -228,7 +228,8 @@ async def get_updated_data(
             ApiWishlistItem(
                 id=str(item.id),
                 name=item.name,
-                expectedPrice=item.expected_price,
+                minPrice=item.min_price,
+                maxPrice=item.max_price,
                 # tagId removed
                 createdAt=int(item.created_at.timestamp() * 1000) if item.created_at else 0,
                 updatedAt=int(item.updated_at.timestamp() * 1000) if item.updated_at else 0
@@ -606,7 +607,8 @@ async def batch_sync_wishlist(
                 if operation.type == "create_wishlist":
                     new_item = WishlistItem(
                         name=operation.name,
-                        expected_price=operation.expected_price,
+                        min_price=operation.min_price,
+                        max_price=operation.max_price,
                         # tag_id removed
                         created_at=datetime.utcnow(),
                         updated_at=datetime.utcnow()
@@ -624,7 +626,8 @@ async def batch_sync_wishlist(
                     item = db.query(WishlistItem).filter(WishlistItem.id == operation.server_id).first()
                     if item:
                         item.name = operation.name
-                        item.expected_price = operation.expected_price
+                        item.min_price = operation.min_price
+                        item.max_price = operation.max_price
                         # tag_id removed
                         item.updated_at = datetime.utcnow()
                         

@@ -69,23 +69,8 @@ async def log_requests(request: Request, call_next):
         f"  Query Params: {dict(request.query_params)}"
     )
     
-    # For POST/PUT requests, log the body (if JSON)
-    if request.method in ["POST", "PUT", "PATCH"]:
-        try:
-            body_bytes = await request.body()
-            if body_bytes:
-                # Try to parse as JSON for prettier logging
-                try:
-                    body_json = json.loads(body_bytes)
-                    # Limit logged body size to avoid flooding logs
-                    body_str = json.dumps(body_json, indent=2)
-                    if len(body_str) > 1000:
-                        body_str = body_str[:1000] + "... (truncated)"
-                    logger.debug(f"  Request Body:\n{body_str}")
-                except json.JSONDecodeError:
-                    logger.debug(f"  Request Body: {body_bytes[:500]}... (non-JSON)")
-        except Exception as e:
-            logger.warning(f"  Could not read request body: {e}")
+    # Don't log body in middleware to avoid stream issues
+    # Let FastAPI handle body parsing automatically
     
     # Process the request
     try:

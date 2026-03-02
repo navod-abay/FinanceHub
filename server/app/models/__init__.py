@@ -155,7 +155,8 @@ class WishlistItem(Base):
     
     # Original fields
     name = Column(String, nullable=False)
-    expected_price = Column(Integer, nullable=False)
+    min_price = Column(Integer, nullable=False)
+    max_price = Column(Integer, nullable=False)
     # tag_id removed for multi-tag support
     
     # Server-side metadata
@@ -167,7 +168,7 @@ class WishlistItem(Base):
     wishlist_tags = relationship("WishlistTagsCrossRef", back_populates="wishlist")
     
     def __repr__(self):
-        return f"<WishlistItem(id={self.id}, name={self.name}, expected_price={self.expected_price})>"
+        return f"<WishlistItem(id={self.id}, name={self.name}, min_price={self.min_price}, max_price={self.max_price})>"
 
 
 class WishlistTagsCrossRef(Base):
