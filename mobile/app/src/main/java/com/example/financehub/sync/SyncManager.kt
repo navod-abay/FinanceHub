@@ -259,13 +259,13 @@ class SyncManager constructor(
                         }
                     }
                     "wishlist" -> {
-                        val wishlistItem = database.wishlistDao().getWishlistById(entityRef.localId.toString())
+                        val wishlistItem = database.wishlistDao().getWishlistById(entityRef.localId.toInt())
                         if (wishlistItem != null) {
                             wishlist.add(buildWishlistOperation(wishlistItem, entityRef.operation))
                         }
                     }
                     "wishlist_tag" -> {
-                        val wishlistTag = database.wishlistTagsDao().getWishlistTagById(entityRef.localId.toString())
+                        val wishlistTag = database.wishlistTagsDao().getWishlistTagBySyncId(entityRef.localId.toString())
                         if (wishlistTag != null) {
                             wishlistTags.add(buildWishlistTagOperation(wishlistTag, entityRef.operation))
                         }
@@ -740,7 +740,7 @@ class SyncManager constructor(
                     "CREATE" -> CreateTargetBatchRequest(
                         month = target.month,
                         year = target.year,
-                        tagId = target.tagID.toString(),
+                        tagId = target.serverId ?: target.tagID.toString(),
                         amount = target.amount,
                         spent = target.spent,
                         clientId = "${target.month}-${target.year}-${target.tagID}"
@@ -1218,8 +1218,8 @@ class SyncManager constructor(
                 val newItem = Wishlist(
                     // id is auto-generated, don't set it
                     name = serverItem.name,
-                    minPrice = serverItem.minPrice,
-                    maxPrice = serverItem.maxPrice,
+                    minPrice = serverItem.expectedPrice ?: 0,
+                    maxPrice = serverItem.expectedPrice ?: 0,
                     // tagID removed
                     serverId = serverItem.id,
                     lastSyncedAt = System.currentTimeMillis(),
@@ -1242,8 +1242,8 @@ class SyncManager constructor(
                     database.wishlistDao().updateFromServer(
                         id = localItem.id,
                         name = serverItem.name,
-                        minPrice = serverItem.minPrice,
-                        maxPrice = serverItem.maxPrice,
+                        minPrice = serverItem.expectedPrice ?: 0,
+                        maxPrice = serverItem.expectedPrice ?: 0,
                         // tagId removed
                         updatedAt = serverItem.updatedAt,
                         lastSyncedAt = System.currentTimeMillis()

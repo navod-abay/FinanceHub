@@ -14,6 +14,7 @@ import com.example.financehub.data.dao.WishlistTagsDao
 import com.example.financehub.data.dao.SyncGroupDao
 import com.example.financehub.data.dao.SyncGroupEntityDao
 import com.example.financehub.data.dao.EntityMappingDao
+import com.example.financehub.data.database.models.TagRef
 
 @Database(
     entities = [
@@ -28,7 +29,8 @@ import com.example.financehub.data.dao.EntityMappingDao
         SyncGroupEntity::class,
         EntityMapping::class
     ],
-    version = 18
+    views = [TagRef::class],
+    version = 2
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao
@@ -50,10 +52,10 @@ abstract class AppDatabase : RoomDatabase() {
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
-                    context.applicationContext,
-                    AppDatabase::class.java,
-                    "expense_database"
-                )
+                                context.applicationContext,
+                                AppDatabase::class.java,
+                                "expense_database"
+                            ).fallbackToDestructiveMigration(false)
                     .build()
                 INSTANCE = instance
                 instance

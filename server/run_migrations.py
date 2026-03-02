@@ -1,53 +1,72 @@
+#!/usr/bin/env python3
 """
-Migration runner - Apply pending migrations to the database
+Run database migrations
 """
+
 import psycopg2
-from app.config import settings
-import os
 from pathlib import Path
+import sys
 
-def get_db_connection():
-    """Parse database URL and create connection"""
-    db_url = settings.database_url
-    
-    # Parse PostgreSQL connection string
-    # Format: postgresql://user:password@host:port/database
-    if db_url.startswith('postgresql://'):
-        return psycopg2.connect(db_url)
-    else:
-        raise ValueError(f"Unsupported database URL format: {db_url}")
+from app.config import settings
 
-def run_migration(migration_file: Path):
+def run_migration(cursor, migration_file: Path):
     """Run a single migration file"""
     print(f"Running migration: {migration_file.name}")
     
     with open(migration_file, 'r') as f:
         sql = f.read()
     
-    conn = get_db_connection()
     try:
-        with conn.cursor() as cursor:
-            cursor.execute(sql)
-            conn.commit()
-            print(f"✓ Migration {migration_file.name} completed successfully")
+        cursor.execute(sql)
+        print(f"✅ Successfully applied {migration_file.name}")
+        return True
     except Exception as e:
-        conn.rollback()
-        print(f"✗ Migration {migration_file.name} failed: {e}")
-        raise
-    finally:
-        conn.close()
+        print(f"❌ Failed to apply {migration_file.name}: {e}")
+        return False
 
 def main():
-    """Run all migrations"""
+    # Connect to database
+    print(f"Connecting to database...")
+    try:
+        conn = psycopg2.connect(settings.database_url)
+        conn.autocommit = True
+        cursor = conn.cursor()
+        print("✅ Connected to database")
+    except Exception as e:
+        print(f"❌ Failed to connect to database: {e}")
+        return 1
+    
+    # Get migrations directory
     migrations_dir = Path(__file__).parent / "migrations"
     
-    # Run the PostgreSQL-specific migration
-    migration_file = migrations_dir / "001_add_id_columns_postgresql.sql"
+    # Get all migration files in order
+    migration_files = sorted(migrations_dir.glob("*.sql"))
     
-    if migration_file.exists():
-        run_migration(migration_file)
+    if not migration_files:
+        print("⚠️  No migration files found")
+        return 0
+    
+    print(f"\nFound {len(migration_files)} migration(s)")
+    print("-" * 50)
+    
+    # Run each migration
+    success_count = 0
+    for migration_file in migration_files:
+        if run_migration(cursor, migration_file):
+            success_count += 1
+        print()
+    
+    # Close connection
+    cursor.close()
+    conn.close()
+    
+    print("-" * 50)
+    print(f"✅ Successfully applied {success_count}/{len(migration_files)} migration(s)")
+    
+    if success_count == len(migration_files):
+        return 0
     else:
-        print(f"Migration file not found: {migration_file}")
+        return 1
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

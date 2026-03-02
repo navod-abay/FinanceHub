@@ -28,6 +28,9 @@ def setup_logging() -> None:
     logging.getLogger("uvicorn.access").setLevel(log_level)
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)  # Reduce SQL noise
     
+    # Make sure our app loggers use DEBUG in debug mode
+    logging.getLogger("app").setLevel(log_level)
+    
     logger = logging.getLogger(__name__)
     logger.info(f"Logging configured with level: {logging.getLevelName(log_level)}")
 

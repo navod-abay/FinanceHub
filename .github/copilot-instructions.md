@@ -2,7 +2,7 @@ Do not create diagrams or flowcharts. Focus on providing clear and concise textu
 
 Do not create test cases or unit tests unless explicitly requested. 
 
-Do not create documentation or API references unless explicitly requested.
+Do not create documentation or API references unless explicitly requested. Such as markdown files or txt files.
 
 When creating a plan do not generate code. Just textual instructions and steps to follow. And no need to business analyst style user stories. No need to create a project plan or timeline. No risk analysis just the technical implementation steps. 
 

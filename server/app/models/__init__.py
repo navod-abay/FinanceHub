@@ -155,7 +155,8 @@ class WishlistItem(Base):
     
     # Original fields
     name = Column(String, nullable=False)
-    expected_price = Column(Integer, nullable=False)
+    min_price = Column(Integer, nullable=False)
+    max_price = Column(Integer, nullable=False)
     # tag_id removed for multi-tag support
     
     # Server-side metadata
@@ -167,7 +168,7 @@ class WishlistItem(Base):
     wishlist_tags = relationship("WishlistTagsCrossRef", back_populates="wishlist")
     
     def __repr__(self):
-        return f"<WishlistItem(id={self.id}, name={self.name}, expected_price={self.expected_price})>"
+        return f"<WishlistItem(id={self.id}, name={self.name}, min_price={self.min_price}, max_price={self.max_price})>"
 
 
 class WishlistTagsCrossRef(Base):
@@ -212,3 +213,31 @@ class WishlistTagsCrossRef(Base):
 
     def __repr__(self):
         return f"<WishlistTagsCrossRef(id={self.id}, wishlist_id={self.wishlist_id}, tag_id={self.tag_id})>"
+
+
+class EntityMapping(Base):
+    """
+    Persistent mapping of client IDs to server IDs.
+    Used to make sync operations idempotent - if client retries after network failure,
+    we can return the existing server ID instead of creating duplicates.
+    """
+    __tablename__ = "entity_mappings"
+    
+    # Composite primary key
+    entity_type = Column(String, primary_key=True)  # "expense", "tag", "target", etc.
+    client_id = Column(String, primary_key=True)
+    
+    # The server-assigned UUID
+    server_id = Column(String, nullable=False)
+    
+    # Track when mapping was created
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Index for efficient lookups
+    __table_args__ = (
+        Index('idx_entity_mapping_lookup', 'entity_type', 'client_id'),
+        Index('idx_entity_mapping_server', 'server_id'),
+    )
+    
+    def __repr__(self):
+        return f"<EntityMapping(entity_type={self.entity_type}, client_id={self.client_id}, server_id={self.server_id})>"

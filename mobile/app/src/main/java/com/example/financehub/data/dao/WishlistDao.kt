@@ -32,10 +32,10 @@ interface WishlistDao {
     suspend fun getPendingSyncWishlist(): List<Wishlist>
 
     @Query("SELECT * FROM wishlist WHERE id = :id")
-    suspend fun getWishlistById(id: String): Wishlist?
+    suspend fun getWishlistById(id: Int): Wishlist?
     
     @Query("UPDATE wishlist SET serverId = :serverId, lastSyncedAt = :lastSyncedAt, pendingSync = :pendingSync, syncOperation = :syncOperation WHERE id = :id")
-    suspend fun updateSyncMetadata(id: Int, serverId: String?, lastSyncedAt: Long, pendingSync: Boolean, syncOperation: String?)
+    suspend fun updateSyncMetadata(id: Int, serverId: String?, lastSyncedAt: Long?, pendingSync: Boolean, syncOperation: String?)
     
     @Query("UPDATE wishlist SET name = :name, minPrice = :minPrice, maxPrice = :maxPrice, updatedAt = :updatedAt, lastSyncedAt = :lastSyncedAt WHERE id = :id")
     suspend fun updateFromServer(id: Int, name: String, minPrice: Int, maxPrice: Int, updatedAt: Long, lastSyncedAt: Long)
