@@ -495,8 +495,7 @@ data class ApiGraphEdge(
 data class ApiWishlistItem(
     val id: String,
     val name: String,
-    val minPrice: Int,
-    val maxPrice: Int,
+    val expectedPrice: Int? = null,
     // tagId removed
     val createdAt: Long,
     val updatedAt: Long
@@ -531,9 +530,9 @@ data class UpdatedDataResponse(
  */
 @Serializable
 data class EntityMappingResponse(
-    @SerialName("entity_type") val entityType: String,
-    @SerialName("client_id") val clientId: String,
-    @SerialName("server_id") val serverId: String
+    val entityType: String,
+    val clientId: String,
+    val serverId: String
 )
 
 /**

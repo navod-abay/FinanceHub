@@ -265,7 +265,7 @@ class SyncManager constructor(
                         }
                     }
                     "wishlist_tag" -> {
-                        val wishlistTag = database.wishlistTagsDao().findUniqueWishlistTagByStringId(entityRef.localId.toString())
+                        val wishlistTag = database.wishlistTagsDao().getWishlistTagBySyncId(entityRef.localId.toString())
                         if (wishlistTag != null) {
                             wishlistTags.add(buildWishlistTagOperation(wishlistTag, entityRef.operation))
                         }
@@ -1218,8 +1218,8 @@ class SyncManager constructor(
                 val newItem = Wishlist(
                     // id is auto-generated, don't set it
                     name = serverItem.name,
-                    minPrice = serverItem.minPrice,
-                    maxPrice = serverItem.maxPrice,
+                    minPrice = serverItem.expectedPrice ?: 0,
+                    maxPrice = serverItem.expectedPrice ?: 0,
                     // tagID removed
                     serverId = serverItem.id,
                     lastSyncedAt = System.currentTimeMillis(),
@@ -1242,8 +1242,8 @@ class SyncManager constructor(
                     database.wishlistDao().updateFromServer(
                         id = localItem.id,
                         name = serverItem.name,
-                        minPrice = serverItem.minPrice,
-                        maxPrice = serverItem.maxPrice,
+                        minPrice = serverItem.expectedPrice ?: 0,
+                        maxPrice = serverItem.expectedPrice ?: 0,
                         // tagId removed
                         updatedAt = serverItem.updatedAt,
                         lastSyncedAt = System.currentTimeMillis()
