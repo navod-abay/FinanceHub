@@ -7,12 +7,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface WishlistDao {
-    @Query("SELECT * FROM wishlist WHERE pendingSync = 0 AND syncOperation IS NULL ORDER BY createdAt DESC")
+    @Query("SELECT * FROM wishlist WHERE  syncOperation != 'DELETE' ORDER BY createdAt DESC")
     fun getAllWishlistItems(): Flow<List<WishlistWithTags>>
-    
-    @Query("SELECT * FROM wishlist WHERE id = :id")
-    suspend fun getWishlistItemById(id: Int): Wishlist?
-    
+
     @Query("SELECT * FROM wishlist WHERE serverId = :serverId LIMIT 1")
     suspend fun getWishlistItemByServerId(serverId: String): Wishlist?
 

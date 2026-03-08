@@ -58,6 +58,10 @@ object ConnectivityState {
     fun updatePendingSyncCount(count: Int) {
         _pendingSyncCount.value = count
     }
+
+    fun incrementPendingSyncCount() {
+        _pendingSyncCount.value++
+    }
     
     /**
      * Check if sync is possible (both WiFi and server are available)

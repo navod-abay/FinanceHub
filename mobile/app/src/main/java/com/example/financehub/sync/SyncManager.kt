@@ -15,36 +15,28 @@ import com.example.financehub.network.models.ApiExpenseTag
 import com.example.financehub.network.models.ApiGraphEdge
 import com.example.financehub.network.models.ApiTag
 import com.example.financehub.network.models.ApiTarget
-import com.example.financehub.network.models.BatchSyncExpenseTagsRequest
-import com.example.financehub.network.models.BatchSyncExpensesRequest
-import com.example.financehub.network.models.BatchSyncGraphEdgesRequest
-import com.example.financehub.network.models.BatchSyncTagsRequest
-import com.example.financehub.network.models.BatchSyncTargetsRequest
-import com.example.financehub.network.models.CreateExpenseBatchRequest
-import com.example.financehub.network.models.CreateExpenseTagBatchRequest
-import com.example.financehub.network.models.CreateGraphEdgeBatchRequest
-import com.example.financehub.network.models.CreateTagBatchRequest
-import com.example.financehub.network.models.CreateTargetBatchRequest
-import com.example.financehub.network.models.DeleteExpenseBatchRequest
-import com.example.financehub.network.models.DeleteExpenseTagBatchRequest
-import com.example.financehub.network.models.DeleteGraphEdgeBatchRequest
-import com.example.financehub.network.models.DeleteTagBatchRequest
-import com.example.financehub.network.models.DeleteTargetBatchRequest
-import com.example.financehub.network.models.SyncResultType
-import com.example.financehub.network.models.UpdateExpenseBatchRequest
-import com.example.financehub.network.models.UpdateGraphEdgeBatchRequest
-import com.example.financehub.network.models.UpdateTagBatchRequest
-import com.example.financehub.network.models.UpdateTargetBatchRequest
+import com.example.financehub.network.models.CreateExpenseOperation
+import com.example.financehub.network.models.CreateExpenseTagOperation
+import com.example.financehub.network.models.CreateGraphEdgeOperation
+import com.example.financehub.network.models.CreateTagOperation
+import com.example.financehub.network.models.CreateTargetOperation
+import com.example.financehub.network.models.DeleteExpenseOperation
+import com.example.financehub.network.models.DeleteExpenseTagOperation
+import com.example.financehub.network.models.DeleteGraphEdgeOperation
+import com.example.financehub.network.models.DeleteTagOperation
+import com.example.financehub.network.models.DeleteTargetOperation
+import com.example.financehub.network.models.UpdateExpenseOperation
+import com.example.financehub.network.models.UpdateGraphEdgeOperation
+import com.example.financehub.network.models.UpdateTagOperation
+import com.example.financehub.network.models.UpdateTargetOperation
 import com.example.financehub.data.database.Wishlist
 import com.example.financehub.network.models.ApiWishlistItem
-import com.example.financehub.network.models.BatchSyncWishlistRequest
-import com.example.financehub.network.models.CreateWishlistBatchRequest
-import com.example.financehub.network.models.UpdateWishlistBatchRequest
-import com.example.financehub.network.models.DeleteWishlistBatchRequest
+import com.example.financehub.network.models.CreateWishlistOperation
+import com.example.financehub.network.models.UpdateWishlistOperation
+import com.example.financehub.network.models.DeleteWishlistOperation
 import com.example.financehub.network.models.ApiWishlistTag
-import com.example.financehub.network.models.BatchSyncWishlistTagsRequest
-import com.example.financehub.network.models.CreateWishlistTagBatchRequest
-import com.example.financehub.network.models.DeleteWishlistTagBatchRequest
+import com.example.financehub.network.models.CreateWishlistTagOperation
+import com.example.financehub.network.models.DeleteWishlistTagOperation
 import com.example.financehub.data.database.WishlistTagsCrossRef
 import com.example.financehub.network.models.AtomicSyncGroup
 import com.example.financehub.network.models.AtomicSyncRequest
@@ -60,6 +52,7 @@ import com.example.financehub.network.models.WishlistTagOperation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import androidx.core.content.edit
 
 /**
  * SyncManager handles synchronization between local database and server
@@ -102,15 +95,13 @@ class SyncManager constructor(
 
             // Step 1: Push local changes to server
             val pushResult = pushLocalChanges()
+            Log.d("SyncManager:performFullSync", "Pushed Local Changes")
             when (pushResult) {
                 is SyncResult.Failure -> {
                     _syncState.value = SyncState.ERROR
-                    // The compiler smart-casts pushResult to Failure, so you can safely access .error
                     return SyncResult.failure("Failed to push local changes: ${pushResult.error}")
                 }
                 is SyncResult.Success -> {
-                    // This block is for the success case.
-                    // You can log the success message or simply do nothing and proceed.
                     Log.d("SyncManager", "Local changes pushed successfully: ${pushResult.message}")
                 }
             }
@@ -163,11 +154,27 @@ class SyncManager constructor(
             
             // Build atomic sync request from groups
             val atomicGroups = mutableListOf<AtomicSyncGroup>()
+            val validGroupIds = mutableListOf<Long>()
+            var hasBuildErrors = false
+            
             for (groupId in groupIds) {
                 val group = buildAtomicSyncGroup(groupId)
                 if (group != null) {
-                    atomicGroups.add(group)
+                    if (group.operations.isNotEmpty()) {
+                        atomicGroups.add(group)
+                        validGroupIds.add(groupId)
+                    } else {
+                        // Group is effectively empty (e.g. offline create+delete)
+                        clearPendingSyncForGroup(groupId)
+                        database.syncGroupDao().updateStatus(groupId, "SUCCESS", System.currentTimeMillis(), null)
+                    }
+                } else {
+                    hasBuildErrors = true
                 }
+            }
+            
+            if (hasBuildErrors && atomicGroups.isEmpty()) {
+                return SyncResult.failure("Failed to build sync groups")
             }
             
             if (atomicGroups.isEmpty()) {
@@ -190,7 +197,11 @@ class SyncManager constructor(
                     Log.d(TAG, "Atomic sync completed: $successfulGroups/$totalGroups groups succeeded")
                     
                     // Process results
-                    processAtomicSyncResults(groupIds, responseBody)
+                    processAtomicSyncResults(validGroupIds, responseBody)
+                    
+                    if (successfulGroups < totalGroups || hasBuildErrors) {
+                        return SyncResult.failure("Partial sync: $successfulGroups/$totalGroups groups succeeded")
+                    }
                     
                     return SyncResult.success("Synced $successfulGroups/$totalGroups groups")
                 } else {
@@ -231,43 +242,43 @@ class SyncManager constructor(
                     "expense" -> {
                         val expense = database.expenseDao().getExpenseById(entityRef.localId.toInt())
                         if (expense != null) {
-                            expenses.add(buildExpenseOperation(expense, entityRef.operation))
+                            buildExpenseOperation(expense, entityRef.operation)?.let { expenses.add(it) }
                         }
                     }
                     "tag" -> {
                         val tag = database.tagsDao().getTagById(entityRef.localId.toInt())
                         if (tag != null) {
-                            tags.add(buildTagOperation(tag, entityRef.operation))
+                            buildTagOperation(tag, entityRef.operation)?.let { tags.add(it) }
                         }
                     }
                     "target" -> {
                         val target = database.targetDao().getTargetById(entityRef.localId)
                         if (target != null) {
-                            targets.add(buildTargetOperation(target, entityRef.operation))
+                            buildTargetOperation(target, entityRef.operation)?.let { targets.add(it) }
                         }
                     }
                     "expense_tag" -> {
                         val expenseTag = database.expenseTagsCrossRefDao().getExpenseTagById(entityRef.localId)
                         if (expenseTag != null) {
-                            expenseTags.add(buildExpenseTagOperation(expenseTag, entityRef.operation))
+                            buildExpenseTagOperation(expenseTag, entityRef.operation)?.let { expenseTags.add(it) }
                         }
                     }
                     "graph_edge" -> {
                         val graphEdge = database.graphEdgeDAO().getGraphEdgeById(entityRef.localId)
                         if (graphEdge != null) {
-                            graphEdges.add(buildGraphEdgeOperation(graphEdge, entityRef.operation))
+                            buildGraphEdgeOperation(graphEdge, entityRef.operation)?.let { graphEdges.add(it) }
                         }
                     }
                     "wishlist" -> {
                         val wishlistItem = database.wishlistDao().getWishlistById(entityRef.localId.toInt())
                         if (wishlistItem != null) {
-                            wishlist.add(buildWishlistOperation(wishlistItem, entityRef.operation))
+                            buildWishlistOperation(wishlistItem, entityRef.operation)?.let { wishlist.add(it) }
                         }
                     }
                     "wishlist_tag" -> {
                         val wishlistTag = database.wishlistTagsDao().getWishlistTagBySyncId(entityRef.localId.toString())
                         if (wishlistTag != null) {
-                            wishlistTags.add(buildWishlistTagOperation(wishlistTag, entityRef.operation))
+                            buildWishlistTagOperation(wishlistTag, entityRef.operation)?.let { wishlistTags.add(it) }
                         }
                     }
                 }
@@ -298,9 +309,11 @@ class SyncManager constructor(
     /**
      * Build an expense operation from an Expense entity
      */
-    private fun buildExpenseOperation(expense: Expense, operation: String): ExpenseOperation {
-        return when (operation) {
-            "CREATE" -> CreateExpenseBatchRequest(
+    private fun buildExpenseOperation(expense: Expense, operation: String): ExpenseOperation? {
+        val actualOperation = if (expense.serverId == null && operation == "UPDATE") "CREATE" else operation
+        if (expense.serverId == null && actualOperation == "DELETE") return null
+        return when (actualOperation) {
+            "CREATE" -> CreateExpenseOperation(
                 title = expense.title,
                 amount = expense.amount,
                 year = expense.year,
@@ -308,7 +321,7 @@ class SyncManager constructor(
                 date = expense.date,
                 clientId = expense.expenseID.toString()
             )
-            "UPDATE" -> UpdateExpenseBatchRequest(
+            "UPDATE" -> UpdateExpenseOperation(
                 serverId = expense.serverId!!,
                 title = expense.title,
                 amount = expense.amount,
@@ -316,19 +329,21 @@ class SyncManager constructor(
                 month = expense.month,
                 date = expense.date
             )
-            "DELETE" -> DeleteExpenseBatchRequest(
+            "DELETE" -> DeleteExpenseOperation(
                 serverId = expense.serverId!!
             )
-            else -> throw IllegalArgumentException("Unknown operation: $operation")
+            else -> throw IllegalArgumentException("Unknown operation: $actualOperation")
         }
     }
     
     /**
      * Build a tag operation from a Tags entity
      */
-    private fun buildTagOperation(tag: Tags, operation: String): TagOperation {
-        return when (operation) {
-            "CREATE" -> CreateTagBatchRequest(
+    private fun buildTagOperation(tag: Tags, operation: String): TagOperation? {
+        val actualOperation = if (tag.serverId == null && operation == "UPDATE") "CREATE" else operation
+        if (tag.serverId == null && actualOperation == "DELETE") return null
+        return when (actualOperation) {
+            "CREATE" -> CreateTagOperation(
                 name = tag.tag,
                 monthlyAmount = tag.monthlyAmount,
                 currentMonth = tag.currentMonth,
@@ -338,26 +353,28 @@ class SyncManager constructor(
                 createdYear = tag.createdYear,
                 clientId = tag.tagID.toString()
             )
-            "UPDATE" -> UpdateTagBatchRequest(
+            "UPDATE" -> UpdateTagOperation(
                 serverId = tag.serverId!!,
                 name = tag.tag,
                 monthlyAmount = tag.monthlyAmount,
                 currentMonth = tag.currentMonth,
                 currentYear = tag.currentYear
             )
-            "DELETE" -> DeleteTagBatchRequest(
+            "DELETE" -> DeleteTagOperation(
                 serverId = tag.serverId!!
             )
-            else -> throw IllegalArgumentException("Unknown operation: $operation")
+            else -> throw IllegalArgumentException("Unknown operation: $actualOperation")
         }
     }
     
     /**
      * Build a target operation from a Target entity
      */
-    private fun buildTargetOperation(target: Target, operation: String): TargetOperation {
-        return when (operation) {
-            "CREATE" -> CreateTargetBatchRequest(
+    private fun buildTargetOperation(target: Target, operation: String): TargetOperation? {
+        val actualOperation = if (target.serverId == null && operation == "UPDATE") "CREATE" else operation
+        if (target.serverId == null && actualOperation == "DELETE") return null
+        return when (actualOperation) {
+            "CREATE" -> CreateTargetOperation(
                 month = target.month,
                 year = target.year,
                 tagId = target.serverId ?: target.tagID.toString(),
@@ -365,23 +382,25 @@ class SyncManager constructor(
                 spent = target.spent,
                 clientId = target.id.toString()
             )
-            "UPDATE" -> UpdateTargetBatchRequest(
+            "UPDATE" -> UpdateTargetOperation(
                 serverId = target.serverId!!,
                 amount = target.amount,
                 spent = target.spent
             )
-            "DELETE" -> DeleteTargetBatchRequest(
+            "DELETE" -> DeleteTargetOperation(
                 serverId = target.serverId!!
             )
-            else -> throw IllegalArgumentException("Unknown operation: $operation")
+            else -> throw IllegalArgumentException("Unknown operation: $actualOperation")
         }
     }
     
     /**
      * Build an expense-tag operation from an ExpenseTagsCrossRef entity
      */
-    private suspend fun buildExpenseTagOperation(expenseTag: ExpenseTagsCrossRef, operation: String): ExpenseTagOperation {
-        return when (operation) {
+    private suspend fun buildExpenseTagOperation(expenseTag: ExpenseTagsCrossRef, operation: String): ExpenseTagOperation? {
+        val actualOperation = if (expenseTag.serverId == null && operation == "UPDATE") "CREATE" else operation
+        if (expenseTag.serverId == null && actualOperation == "DELETE") return null
+        return when (actualOperation) {
             "CREATE" -> {
                 val expenseServerId = database.entityMappingDao().getServerId("expense", expenseTag.expenseID.toLong())
                     ?: database.expenseDao().getExpenseById(expenseTag.expenseID)?.serverId
@@ -391,24 +410,26 @@ class SyncManager constructor(
                     ?: database.tagsDao().getTagById(expenseTag.tagID)?.serverId
                     ?: expenseTag.tagID.toString()
                 
-                CreateExpenseTagBatchRequest(
+                CreateExpenseTagOperation(
                     expenseId = expenseServerId,
                     tagId = tagServerId,
                     clientId = expenseTag.id.toString()
                 )
             }
-            "DELETE" -> DeleteExpenseTagBatchRequest(
+            "DELETE" -> DeleteExpenseTagOperation(
                 serverId = expenseTag.serverId!!
             )
-            else -> throw IllegalArgumentException("Unknown operation: $operation")
+            else -> throw IllegalArgumentException("Unknown operation: $actualOperation")
         }
     }
     
     /**
      * Build a graph edge operation from a GraphEdge entity
      */
-    private suspend fun buildGraphEdgeOperation(graphEdge: GraphEdge, operation: String): GraphEdgeOperation {
-        return when (operation) {
+    private suspend fun buildGraphEdgeOperation(graphEdge: GraphEdge, operation: String): GraphEdgeOperation? {
+        val actualOperation = if (graphEdge.serverId == null && operation == "UPDATE") "CREATE" else operation
+        if (graphEdge.serverId == null && actualOperation == "DELETE") return null
+        return when (actualOperation) {
             "CREATE" -> {
                 val fromTagServerId = database.entityMappingDao().getServerId("tag", graphEdge.fromTagId.toLong())
                     ?: database.tagsDao().getTagById(graphEdge.fromTagId)?.serverId
@@ -418,70 +439,74 @@ class SyncManager constructor(
                     ?: database.tagsDao().getTagById(graphEdge.toTagId)?.serverId
                     ?: graphEdge.toTagId.toString()
                 
-                CreateGraphEdgeBatchRequest(
+                CreateGraphEdgeOperation(
                     fromTagId = fromTagServerId,
                     toTagId = toTagServerId,
                     weight = graphEdge.weight,
                     clientId = graphEdge.id.toString()
                 )
             }
-            "UPDATE" -> UpdateGraphEdgeBatchRequest(
+            "UPDATE" -> UpdateGraphEdgeOperation(
                 serverId = graphEdge.serverId!!,
                 weight = graphEdge.weight
             )
-            "DELETE" -> DeleteGraphEdgeBatchRequest(
+            "DELETE" -> DeleteGraphEdgeOperation(
                 serverId = graphEdge.serverId!!
             )
-            else -> throw IllegalArgumentException("Unknown operation: $operation")
+            else -> throw IllegalArgumentException("Unknown operation: $actualOperation")
         }
     }
     
     /**
      * Build a wishlist operation from a Wishlist entity
      */
-    private fun buildWishlistOperation(wishlistItem: Wishlist, operation: String): WishlistOperation {
-        return when (operation) {
-            "CREATE" -> CreateWishlistBatchRequest(
+    private fun buildWishlistOperation(wishlistItem: Wishlist, operation: String): WishlistOperation? {
+        val actualOperation = if (wishlistItem.serverId == null && operation == "UPDATE") "CREATE" else operation
+        if (wishlistItem.serverId == null && actualOperation == "DELETE") return null
+        return when (actualOperation) {
+            "CREATE" -> CreateWishlistOperation(
                 name = wishlistItem.name,
                 minPrice = wishlistItem.minPrice,
                 maxPrice = wishlistItem.maxPrice,
                 clientId = wishlistItem.id.toString()
             )
-            "UPDATE" -> UpdateWishlistBatchRequest(
+            "UPDATE" -> UpdateWishlistOperation(
                 serverId = wishlistItem.serverId!!,
                 name = wishlistItem.name,
                 minPrice = wishlistItem.minPrice,
                 maxPrice = wishlistItem.maxPrice
             )
-            "DELETE" -> DeleteWishlistBatchRequest(
+            "DELETE" -> DeleteWishlistOperation(
                 serverId = wishlistItem.serverId!!
             )
-            else -> throw IllegalArgumentException("Unknown operation: $operation")
+            else -> throw IllegalArgumentException("Unknown operation: $actualOperation")
         }
     }
     
     /**
      * Build a wishlist-tag operation from a WishlistTagsCrossRef entity
      */
-    private suspend fun buildWishlistTagOperation(wishlistTag: WishlistTagsCrossRef, operation: String): WishlistTagOperation {
-        return when (operation) {
+    private suspend fun buildWishlistTagOperation(wishlistTag: WishlistTagsCrossRef, operation: String): WishlistTagOperation? {
+        val actualOperation = if (wishlistTag.serverId == null && operation == "UPDATE") "CREATE" else operation
+        if (wishlistTag.serverId == null && actualOperation == "DELETE") return null
+        return when (actualOperation) {
             "CREATE" -> {
                 val tagServerId = database.entityMappingDao().getServerId("tag", wishlistTag.tagID.toLong())
                     ?: database.tagsDao().getTagById(wishlistTag.tagID)?.serverId
                     ?: wishlistTag.tagID.toString()
                 
-                CreateWishlistTagBatchRequest(
+                CreateWishlistTagOperation(
                     wishlistId = wishlistTag.wishlistId.hashCode(),
                     tagId = tagServerId,
                     clientId = wishlistTag.id
                 )
             }
-            "DELETE" -> DeleteWishlistTagBatchRequest(
+            "DELETE" -> DeleteWishlistTagOperation(
                 wishlistId = wishlistTag.wishlistId.hashCode(),
                 tagId = wishlistTag.tagID.toString(),
-                serverId = wishlistTag.serverId
+                serverId = wishlistTag.serverId!!
             )
-            else -> throw IllegalArgumentException("Unknown operation: $operation")
+            else -> throw IllegalArgumentException("Unknown operation: $actualOperation")
         }
     }
     
@@ -500,7 +525,7 @@ class SyncManager constructor(
                     syncedAt = System.currentTimeMillis(),
                     errorMessage = null
                 )
-                
+
                 // Save entity mappings
                 for (mapping in groupResult.entityMappings) {
                     database.entityMappingDao().insert(
@@ -511,7 +536,7 @@ class SyncManager constructor(
                         )
                     )
                 }
-                
+
                 // Clear pending sync flags for entities in this group
                 clearPendingSyncForGroup(groupId)
                 
@@ -615,278 +640,6 @@ class SyncManager constructor(
         }
     }
 
-    /**
-     * Push expenses to server in batches
-     */
-    private suspend fun pushExpensesToServer(expenses: List<Expense>) {
-        expenses.chunked(MAX_BATCH_SIZE).forEach { batch ->
-            val operations = batch.map { expense ->
-                when (expense.syncOperation) {
-                    "CREATE" -> CreateExpenseBatchRequest(
-                        title = expense.title,
-                        amount = expense.amount,
-                        year = expense.year,
-                        month = expense.month,
-                        date = expense.date,
-                        clientId = expense.expenseID.toString()
-                    )
-                    "UPDATE" -> UpdateExpenseBatchRequest(
-                        serverId = expense.serverId!!,
-                        title = expense.title,
-                        amount = expense.amount,
-                        year = expense.year,
-                        month = expense.month,
-                        date = expense.date
-                    )
-                    "DELETE" -> DeleteExpenseBatchRequest(
-                        serverId = expense.serverId!!
-                    )
-                    else -> null
-                }
-            }.filterNotNull()
-            Log.d(TAG, "Pushing expense batch of size ${operations.size} to server")
-            // Send batch to server
-            val response = apiService.batchSyncExpenses(BatchSyncExpensesRequest(operations))
-            if (response.isSuccessful) {
-                Log.d(TAG, "Expense batch synced successfully")
-                val responseBody = response.body()
-                if (responseBody != null) {
-                    // Update local records with server IDs and sync status
-                    responseBody.results.forEach { syncResult: SyncResultType ->
-                        if (syncResult.success) {
-                            val localExpense = batch.find { it.expenseID.toString() == syncResult.clientId }
-                            localExpense?.let { expense ->
-                                database.expenseDao().updateSyncMetadata(
-                                    expenseId = expense.expenseID,
-                                    serverId = syncResult.serverId,
-                                    lastSyncedAt = System.currentTimeMillis(),
-                                    pendingSync = false,
-                                    syncOperation = null
-                                )
-                            }
-                        }
-                    }
-                }
-            } else {
-                Log.e(TAG, "Failed to sync expense batch: ${response.message()}")
-            }
-        }
-    }
-
-    /**
-     * Push tags to server in batches
-     */
-    private suspend fun pushTagsToServer(tags: List<Tags>) {
-        tags.chunked(MAX_BATCH_SIZE).forEach { batch ->
-            val operations = batch.map { tag ->
-                when (tag.syncOperation) {
-                    "CREATE" -> CreateTagBatchRequest(
-                        name = tag.tag,
-                        monthlyAmount = tag.monthlyAmount,
-                        currentMonth = tag.currentMonth,
-                        currentYear = tag.currentYear,
-                        createdDay = tag.createdDay,
-                        createdMonth = tag.createdMonth,
-                        createdYear = tag.createdYear,
-                        clientId = tag.tagID.toString()
-                    )
-                    "UPDATE" -> UpdateTagBatchRequest(
-                        serverId = tag.serverId!!,
-                        name = tag.tag,
-                        monthlyAmount = tag.monthlyAmount,
-                        currentMonth = tag.currentMonth,
-                        currentYear = tag.currentYear
-                    )
-                    "DELETE" -> DeleteTagBatchRequest(
-                        serverId = tag.serverId!!
-                    )
-                    else -> null
-                }
-            }.filterNotNull()
-            Log.d(TAG, "Pushing tag batch of size ${operations.size} to server")
-            // Send batch to server
-            val response = apiService.batchSyncTags(BatchSyncTagsRequest(operations))
-            if (response.isSuccessful) {
-                val responseBody = response.body()
-                if (responseBody != null) {
-                    responseBody.results.forEach { syncResult: SyncResultType ->
-                        if (syncResult.success) {
-                            val localTag = batch.find { it.tagID.toString() == syncResult.clientId }
-                            localTag?.let { tag ->
-                                database.tagsDao().updateSyncMetadata(
-                                    tagId = tag.tagID,
-                                    serverId = syncResult.serverId,
-                                    lastSyncedAt = System.currentTimeMillis(),
-                                    pendingSync = false,
-                                    syncOperation = null
-                                )
-                            }
-                        }
-                    }
-                }
-            } else {
-                Log.e(TAG, "Failed to sync tag batch: ${response.message()}")
-            }
-        }
-    }
-
-    /**
-     * Push targets to server in batches
-     */
-    private suspend fun pushTargetsToServer(targets: List<Target>) {
-        targets.chunked(MAX_BATCH_SIZE).forEach { batch ->
-            val operations = batch.map { target ->
-                when (target.syncOperation) {
-                    "CREATE" -> CreateTargetBatchRequest(
-                        month = target.month,
-                        year = target.year,
-                        tagId = target.serverId ?: target.tagID.toString(),
-                        amount = target.amount,
-                        spent = target.spent,
-                        clientId = "${target.month}-${target.year}-${target.tagID}"
-                    )
-                    "UPDATE" -> UpdateTargetBatchRequest(
-                        serverId = target.serverId!!,
-                        amount = target.amount,
-                        spent = target.spent
-                    )
-                    "DELETE" -> DeleteTargetBatchRequest(
-                        serverId = target.serverId!!
-                    )
-                    else -> null
-                }
-            }.filterNotNull()
-
-            // Send batch to server
-            val response = apiService.batchSyncTargets(BatchSyncTargetsRequest(operations))
-            if (response.isSuccessful) {
-                val responseBody = response.body()
-                if (responseBody != null) {
-                    responseBody.results.forEach { syncResult: SyncResultType ->
-                        if (syncResult.success) {
-                            val localTarget = batch.find { 
-                                "${it.month}-${it.year}-${it.tagID}" == syncResult.clientId 
-                            }
-                            localTarget?.let { target ->
-                                database.targetDao().updateSyncMetadata(
-                                    month = target.month,
-                                    year = target.year,
-                                    tagId = target.tagID,
-                                    serverId = syncResult.serverId,
-                                    lastSyncedAt = System.currentTimeMillis(),
-                                    pendingSync = false,
-                                    syncOperation = null
-                                )
-                            }
-                        }
-                    }
-                }
-            } else {
-                Log.e(TAG, "Failed to sync target batch: ${response.message()}")
-            }
-        }
-    }
-
-    /**
-     * Push expense-tag relationships to server
-     */
-    private suspend fun pushExpenseTagsToServer(expenseTags: List<ExpenseTagsCrossRef>) {
-        expenseTags.chunked(MAX_BATCH_SIZE).forEach { batch ->
-            val operations = batch.map { expenseTag ->
-                when (expenseTag.syncOperation) {
-                    "CREATE" -> CreateExpenseTagBatchRequest(
-                        expenseId = expenseTag.expenseID.toString(),
-                        tagId = expenseTag.tagID.toString(),
-                        clientId = "${expenseTag.expenseID}-${expenseTag.tagID}"
-                    )
-                    "DELETE" -> DeleteExpenseTagBatchRequest(
-                        serverId = expenseTag.serverId!!
-                    )
-                    else -> null
-                }
-            }.filterNotNull()
-
-            // Send batch to server
-            val response = apiService.batchSyncExpenseTags(BatchSyncExpenseTagsRequest(operations))
-            if (response.isSuccessful) {
-                val responseBody = response.body()
-                if (responseBody != null) {
-                    responseBody.results.forEach { syncResult: SyncResultType ->
-                        if (syncResult.success) {
-                            val localExpenseTag = batch.find { 
-                                "${it.expenseID}-${it.tagID}" == syncResult.clientId 
-                            }
-                            localExpenseTag?.let { expenseTag ->
-                                database.expenseTagsCrossRefDao().updateSyncMetadata(
-                                    expenseId = expenseTag.expenseID,
-                                    tagId = expenseTag.tagID,
-                                    serverId = syncResult.serverId,
-                                    lastSyncedAt = System.currentTimeMillis(),
-                                    pendingSync = false,
-                                    syncOperation = null
-                                )
-                            }
-                        }
-                    }
-                }
-            } else {
-                Log.e(TAG, "Failed to sync expense-tag batch: ${response.message()}")
-            }
-        }
-    }
-
-    /**
-     * Push graph edges to server
-     */
-    private suspend fun pushGraphEdgesToServer(graphEdges: List<GraphEdge>) {
-        graphEdges.chunked(MAX_BATCH_SIZE).forEach { batch ->
-            val operations = batch.map { edge ->
-                when (edge.syncOperation) {
-                    "CREATE" -> CreateGraphEdgeBatchRequest(
-                        fromTagId = edge.fromTagId.toString(),
-                        toTagId = edge.toTagId.toString(),
-                        weight = edge.weight,
-                        clientId = "${edge.fromTagId}-${edge.toTagId}"
-                    )
-                    "UPDATE" -> UpdateGraphEdgeBatchRequest(
-                        serverId = edge.serverId!!,
-                        weight = edge.weight
-                    )
-                    "DELETE" -> DeleteGraphEdgeBatchRequest(
-                        serverId = edge.serverId!!
-                    )
-                    else -> null
-                }
-            }.filterNotNull()
-
-            // Send batch to server
-            val response = apiService.batchSyncGraphEdges(BatchSyncGraphEdgesRequest(operations))
-            if (response.isSuccessful) {
-                val responseBody = response.body()
-                if (responseBody != null) {
-                    responseBody.results.forEach { syncResult: SyncResultType ->
-                        if (syncResult.success) {
-                            val localEdge = batch.find { 
-                                "${it.fromTagId}-${it.toTagId}" == syncResult.clientId 
-                            }
-                            localEdge?.let { edge ->
-                                database.graphEdgeDAO().updateSyncMetadata(
-                                    fromTagId = edge.fromTagId,
-                                    toTagId = edge.toTagId,
-                                    serverId = syncResult.serverId,
-                                    lastSyncedAt = System.currentTimeMillis(),
-                                    pendingSync = false,
-                                    syncOperation = null
-                                )
-                            }
-                        }
-                    }
-                }
-            } else {
-                Log.e(TAG, "Failed to sync graph edge batch: ${response.message()}")
-            }
-        }
-    }
 
     /**
      * Apply server expenses to local database with client-authoritative conflict resolution
@@ -1158,54 +911,6 @@ class SyncManager constructor(
         }
     }
 
-    /**
-     * Push wishlist items to server in batches
-     */
-    private suspend fun pushWishlistToServer(items: List<Wishlist>) {
-        items.chunked(MAX_BATCH_SIZE).forEach { batch ->
-            val operations = batch.map { item ->
-                when (item.syncOperation) {
-                    "CREATE" -> CreateWishlistBatchRequest(
-                        name = item.name,
-                        minPrice = item.minPrice,
-                        maxPrice = item.maxPrice,
-                        clientId = item.id.toString()
-                    )
-                    "UPDATE" -> UpdateWishlistBatchRequest(
-                        serverId = item.serverId!!,
-                        name = item.name,
-                        minPrice = item.minPrice,
-                        maxPrice = item.maxPrice,
-                    )
-                    "DELETE" -> DeleteWishlistBatchRequest(
-                        serverId = item.serverId!!
-                    )
-                    else -> null
-                }
-            }.filterNotNull()
-
-            val response = apiService.batchSyncWishlist(BatchSyncWishlistRequest(operations))
-            if (response.isSuccessful) {
-                val responseBody = response.body()
-                if (responseBody != null) {
-                    responseBody.results.forEach { syncResult: SyncResultType ->
-                        if (syncResult.success) {
-                            val localItem = batch.find { it.id.toString() == syncResult.clientId }
-                            localItem?.let { item ->
-                                database.wishlistDao().updateSyncMetadata(
-                                    id = item.id,
-                                    serverId = syncResult.serverId,
-                                    lastSyncedAt = System.currentTimeMillis(),
-                                    pendingSync = false,
-                                    syncOperation = null
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
 
     /**
      * Apply server wishlist items with client-authoritative conflict resolution
@@ -1218,8 +923,8 @@ class SyncManager constructor(
                 val newItem = Wishlist(
                     // id is auto-generated, don't set it
                     name = serverItem.name,
-                    minPrice = serverItem.expectedPrice ?: 0,
-                    maxPrice = serverItem.expectedPrice ?: 0,
+                    minPrice = serverItem.minPrice ?: 0,
+                    maxPrice = serverItem.maxPrice ?: 0,
                     // tagID removed
                     serverId = serverItem.id,
                     lastSyncedAt = System.currentTimeMillis(),
@@ -1242,8 +947,8 @@ class SyncManager constructor(
                     database.wishlistDao().updateFromServer(
                         id = localItem.id,
                         name = serverItem.name,
-                        minPrice = serverItem.expectedPrice ?: 0,
-                        maxPrice = serverItem.expectedPrice ?: 0,
+                        minPrice = serverItem.minPrice,
+                        maxPrice = serverItem.maxPrice,
                         // tagId removed
                         updatedAt = serverItem.updatedAt,
                         lastSyncedAt = System.currentTimeMillis()
@@ -1256,59 +961,6 @@ class SyncManager constructor(
                         pendingSync = false,
                         syncOperation = null
                     )
-                }
-            }
-        }
-    }
-
-    /**
-     * Push wishlist tags to server
-     */
-    private suspend fun pushWishlistTagsToServer(items: List<WishlistTagsCrossRef>) {
-        items.chunked(MAX_BATCH_SIZE).forEach { batch ->
-            val operations = batch.map { item ->
-                when (item.syncOperation) {
-                    "CREATE" -> CreateWishlistTagBatchRequest(
-                        wishlistId = item.wishlistId,
-                        tagId = item.tagID.toString(),
-                        clientId = item.id
-                    )
-                    "DELETE" -> DeleteWishlistTagBatchRequest(
-                        wishlistId = item.wishlistId,
-                        tagId = item.tagID.toString(),
-                        serverId = item.serverId
-                    )
-                    else -> null
-                }
-            }.filterNotNull()
-
-            if (operations.isNotEmpty()) {
-                val response = apiService.batchSyncWishlistTags(BatchSyncWishlistTagsRequest(operations))
-                if (response.isSuccessful) {
-                    val responseBody = response.body()
-                    if (responseBody != null) {
-                        responseBody.results.forEach { syncResult: SyncResultType ->
-                            if (syncResult.success) {
-                                val localItem = batch.find { it.id == syncResult.clientId || (syncResult.clientId == null && it.serverId == syncResult.serverId) }
-                                localItem?.let { item ->
-                                    if (item.syncOperation == "DELETE") {
-                                         // If deleted successfully, we can remove it from DB fully or keep as soft delete?
-                                         // For cross-refs, usually hard delete locally if server confirmed?
-                                         // Logic: item is already deleted locally? No, if it was pending sync "DELETE", it exists in DB.
-                                         database.wishlistTagsDao().deleteWishlistTag(item)
-                                    } else {
-                                        database.wishlistTagsDao().updateSyncMetadata(
-                                            id = item.id,
-                                            serverId = syncResult.serverId,
-                                            lastSyncedAt = System.currentTimeMillis(),
-                                            pendingSync = false,
-                                            syncOperation = null
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }

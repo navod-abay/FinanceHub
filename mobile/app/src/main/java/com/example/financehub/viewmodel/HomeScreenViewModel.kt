@@ -47,8 +47,7 @@ class HomeScreenViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SyncProgress())
     
     private val _syncResult = MutableStateFlow<SyncRepositoryResult?>(null)
-    val syncResult: StateFlow<SyncRepositoryResult?> = _syncResult
-    
+
     private val _hasPendingSync = MutableStateFlow(false)
     val hasPendingSync: StateFlow<Boolean> = _hasPendingSync
 

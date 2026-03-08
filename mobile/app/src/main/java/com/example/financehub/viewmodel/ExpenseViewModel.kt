@@ -74,7 +74,8 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
                     newTags = newTags
                 )
                 
-                _operationResult.value = "Expense added successfully (will sync when connected)"
+                _operationResult.value = "Expense added successfully"
+                repository.triggerSync()
                 
                 // Reset form
                 name.value = ""
