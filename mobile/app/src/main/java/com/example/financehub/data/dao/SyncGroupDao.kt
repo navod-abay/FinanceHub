@@ -33,7 +33,7 @@ interface SyncGroupDao {
     
     @Query("DELETE FROM sync_groups WHERE status = 'SUCCESS' AND syncedAt < :cutoffTime")
     suspend fun deleteSuccessfulBefore(cutoffTime: Long)
-    
+
     @Delete
     suspend fun delete(syncGroup: SyncGroup)
 }
