@@ -2,82 +2,50 @@
 -- Date: 2025-12-10
 -- Description: Adds id column to expense_tags, targets, and graph_edges tables
 
--- ============================================================================
--- 1. ExpenseTagsCrossRef (expense_tags table)
--- ============================================================================
+DO $$ 
+BEGIN
+    -- 1. ExpenseTagsCrossRef (expense_tags table)
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'expense_tags') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'expense_tags' AND column_name = 'id') THEN
+            ALTER TABLE expense_tags ADD COLUMN id VARCHAR(36);
+            UPDATE expense_tags SET id = uuid_generate_v4() WHERE id IS NULL;
+            ALTER TABLE expense_tags ALTER COLUMN id SET NOT NULL;
+            
+            -- Drop old primary key constraints by looking them up or just assuming default names
+            -- Assuming the old constraint name might be unknown, but let's try dropping the explicit constraint names if they exist
+            ALTER TABLE expense_tags DROP CONSTRAINT IF EXISTS expense_tags_pkey;
+            
+            ALTER TABLE expense_tags ADD PRIMARY KEY (id);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_expense_tag_unique ON expense_tags(expense_id, tag_id);
+            ALTER TABLE expense_tags ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+        END IF;
+    END IF;
 
--- Add id column
-ALTER TABLE expense_tags ADD COLUMN id VARCHAR(36);
+    -- 2. Target (targets table)
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'targets') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'targets' AND column_name = 'id') THEN
+            ALTER TABLE targets ADD COLUMN id VARCHAR(36);
+            UPDATE targets SET id = uuid_generate_v4() WHERE id IS NULL;
+            ALTER TABLE targets ALTER COLUMN id SET NOT NULL;
+            
+            ALTER TABLE targets DROP CONSTRAINT IF EXISTS targets_pkey;
+            ALTER TABLE targets ADD PRIMARY KEY (id);
+            
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_target_unique ON targets(month, year, tag_id);
+        END IF;
+    END IF;
 
--- Generate UUIDs for existing rows
-UPDATE expense_tags SET id = (SELECT UUID()) WHERE id IS NULL;
-
--- Make id NOT NULL after populating
-ALTER TABLE expense_tags MODIFY COLUMN id VARCHAR(36) NOT NULL;
-
--- Drop old primary key
-ALTER TABLE expense_tags DROP PRIMARY KEY;
-
--- Add new primary key on id
-ALTER TABLE expense_tags ADD PRIMARY KEY (id);
-
--- Add unique constraint on expense_id + tag_id
-CREATE UNIQUE INDEX idx_expense_tag_unique ON expense_tags(expense_id, tag_id);
-
--- Add updated_at column
-ALTER TABLE expense_tags ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
-
-
--- ============================================================================
--- 2. Target (targets table)
--- ============================================================================
-
--- Add id column
-ALTER TABLE targets ADD COLUMN id VARCHAR(36);
-
--- Generate UUIDs for existing rows
-UPDATE targets SET id = (SELECT UUID()) WHERE id IS NULL;
-
--- Make id NOT NULL after populating
-ALTER TABLE targets MODIFY COLUMN id VARCHAR(36) NOT NULL;
-
--- Drop old primary key
-ALTER TABLE targets DROP PRIMARY KEY;
-
--- Add new primary key on id
-ALTER TABLE targets ADD PRIMARY KEY (id);
-
--- Make old primary key columns regular columns (already done by DROP PRIMARY KEY)
-ALTER TABLE targets MODIFY COLUMN month INT NOT NULL;
-ALTER TABLE targets MODIFY COLUMN year INT NOT NULL;
-ALTER TABLE targets MODIFY COLUMN tag_id VARCHAR(36) NOT NULL;
-
--- Add unique constraint on month + year + tag_id
-CREATE UNIQUE INDEX idx_target_unique ON targets(month, year, tag_id);
-
-
--- ============================================================================
--- 3. GraphEdge (graph_edges table)
--- ============================================================================
-
--- Add id column
-ALTER TABLE graph_edges ADD COLUMN id VARCHAR(36);
-
--- Generate UUIDs for existing rows
-UPDATE graph_edges SET id = (SELECT UUID()) WHERE id IS NULL;
-
--- Make id NOT NULL after populating
-ALTER TABLE graph_edges MODIFY COLUMN id VARCHAR(36) NOT NULL;
-
--- Drop old primary key
-ALTER TABLE graph_edges DROP PRIMARY KEY;
-
--- Add new primary key on id
-ALTER TABLE graph_edges ADD PRIMARY KEY (id);
-
--- Make old primary key columns regular columns
-ALTER TABLE graph_edges MODIFY COLUMN from_tag_id VARCHAR(36) NOT NULL;
-ALTER TABLE graph_edges MODIFY COLUMN to_tag_id VARCHAR(36) NOT NULL;
-
--- Add unique constraint on from_tag_id + to_tag_id
-CREATE UNIQUE INDEX idx_graph_unique ON graph_edges(from_tag_id, to_tag_id);
+    -- 3. GraphEdge (graph_edges table)
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'graph_edges') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'graph_edges' AND column_name = 'id') THEN
+            ALTER TABLE graph_edges ADD COLUMN id VARCHAR(36);
+            UPDATE graph_edges SET id = uuid_generate_v4() WHERE id IS NULL;
+            ALTER TABLE graph_edges ALTER COLUMN id SET NOT NULL;
+            
+            ALTER TABLE graph_edges DROP CONSTRAINT IF EXISTS graph_edges_pkey;
+            ALTER TABLE graph_edges ADD PRIMARY KEY (id);
+            
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_graph_unique ON graph_edges(from_tag_id, to_tag_id);
+        END IF;
+    END IF;
+END $$;

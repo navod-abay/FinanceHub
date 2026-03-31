@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 
 from app.config import settings
+from app.database import create_tables
 
 def run_migration(cursor, migration_file: Path):
     """Run a single migration file"""
@@ -25,6 +26,11 @@ def run_migration(cursor, migration_file: Path):
         return False
 
 def main():
+    # Ensure tables exist
+    print("Ensuring base tables exist via SQLAlchemy...")
+    create_tables()
+    print("✅ Base tables created/verified")
+    
     # Connect to database
     print(f"Connecting to database...")
     try:

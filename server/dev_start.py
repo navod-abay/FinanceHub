@@ -13,7 +13,7 @@ def main():
     script_dir = Path(__file__).parent
     
     # Set environment variables for development
-    os.environ.setdefault("DATABASE_URL", "postgresql://financehub_user:Towel;2340@localhost:5432/financehub")
+    os.environ.setdefault("DATABASE_URL", "postgresql://financehub_user:Towel;2340@127.0.0.1:5432/financehub_db")
     os.environ.setdefault("DEBUG", "True")
     os.environ.setdefault("HOST", "0.0.0.0")
     os.environ.setdefault("PORT", "8000")
