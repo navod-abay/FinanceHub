@@ -22,8 +22,8 @@ object NetworkConfig {
     private const val TAG = "NetworkConfig"
     
     // Server configuration from BuildConfig (automatically switches based on build type)
-    private val BASE_URL = BuildConfig.API_BASE_URL
-    private val API_BASE_URL = BuildConfig.API_ENDPOINT
+    private const val BASE_URL = BuildConfig.API_BASE_URL
+    private const val API_BASE_URL = BuildConfig.API_ENDPOINT
     
     // Timeouts
     private const val CONNECT_TIMEOUT = 10L // seconds
@@ -81,14 +81,5 @@ object NetworkConfig {
     fun <T> createService(serviceClass: Class<T>): T {
         return retrofit.create(serviceClass)
     }
-    
-    /**
-     * Get the base URL for reference
-     */
-    fun getBaseUrl(): String = BASE_URL
-    
-    /**
-     * Get the API base URL for reference
-     */
-    fun getApiBaseUrl(): String = API_BASE_URL
+
 }

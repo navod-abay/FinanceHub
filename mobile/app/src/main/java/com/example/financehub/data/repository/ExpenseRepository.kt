@@ -82,7 +82,7 @@ class ExpenseRepository(
         // Mark expense for sync
         syncManager.markForSync(SyncEntityType.EXPENSE, expenseID.toString(), SyncOperation.CREATE)
         _hasPendingSync.value = true
-        ConnectivityState.updatePendingSyncCount(1)
+        ConnectivityState.incrementPendingSyncCount()
         
         tags.forEach { tag ->
             addExistingTagforExpense(expenseID, expenseWithSync, tag)
@@ -166,7 +166,7 @@ class ExpenseRepository(
         // Mark expense for sync
         syncManager.markForSync(SyncEntityType.EXPENSE, expense.expenseID.toString(), SyncOperation.UPDATE)
         _hasPendingSync.value = true
-        ConnectivityState.updatePendingSyncCount(1)
+        ConnectivityState.incrementPendingSyncCount()
 
         removedTags.forEach { tagRef ->
             removeTagFromExpense(expense.expenseID, expense.amount, tagRef, expense.month, expense.year)
@@ -183,7 +183,7 @@ class ExpenseRepository(
         // Mark expense-tag relationship for deletion sync
         syncManager.markForSync(SyncEntityType.EXPENSE_TAG, "$expenseID-${tag.tagID}", SyncOperation.DELETE)
         _hasPendingSync.value = true
-        ConnectivityState.updatePendingSyncCount(1)
+        ConnectivityState.incrementPendingSyncCount()
         
         expenseTagsCrossRefDao.deleteExpenseTagsCrossRef(
             ExpenseTagsCrossRef(
@@ -219,7 +219,7 @@ class ExpenseRepository(
         // Mark tag for sync
         syncManager.markForSync(SyncEntityType.TAG, tagID.toString(), SyncOperation.CREATE)
         _hasPendingSync.value = true
-        ConnectivityState.updatePendingSyncCount(1)
+        ConnectivityState.incrementPendingSyncCount()
         
         // Create expense-tag relationship with sync metadata
         val expenseTagRef = ExpenseTagsCrossRef(
@@ -241,7 +241,7 @@ class ExpenseRepository(
         tagDao.incrementAmount(tag.tagID, expense.amount, expense.month, expense.year)
         syncManager.markForSync(SyncEntityType.TAG, tag.tagID.toString(), SyncOperation.UPDATE)
         _hasPendingSync.value = true
-        ConnectivityState.updatePendingSyncCount(1)
+        ConnectivityState.incrementPendingSyncCount()
         
         // Update target if exists and mark for sync
         targetDao.getTarget(expense.month, expense.year, tag.tagID)?.let { target ->
@@ -512,7 +512,7 @@ class ExpenseRepository(
         // Mark target for sync
         syncManager.markForSync(SyncEntityType.TARGET, "$month-$year-$tagID", SyncOperation.CREATE)
         _hasPendingSync.value = true
-        ConnectivityState.updatePendingSyncCount(1)
+        ConnectivityState.incrementPendingSyncCount()
     }
 
     fun getAllTargetsWithTagsFromCurrentMonth(): Flow<List<TargetWithTag>> {
@@ -545,7 +545,7 @@ class ExpenseRepository(
         // Mark target for deletion sync
         syncManager.markForSync(SyncEntityType.TARGET, "${target.month}-${target.year}-${target.tagID}", SyncOperation.DELETE)
         _hasPendingSync.value = true
-        ConnectivityState.updatePendingSyncCount(1)
+        ConnectivityState.incrementPendingSyncCount()
         
         targetDao.deleteTarget(target.month, target.year, target.tagID)
     }
@@ -554,7 +554,7 @@ class ExpenseRepository(
         // Mark target for update sync
         syncManager.markForSync(SyncEntityType.TARGET, "${target.month}-${target.year}-${target.tagID}", SyncOperation.UPDATE)
         _hasPendingSync.value = true
-        ConnectivityState.updatePendingSyncCount(1)
+        ConnectivityState.incrementPendingSyncCount()
         
         targetDao.updateTargetAmount(target.month, target.year, target.tagID, newAmount)
     }
@@ -629,7 +629,7 @@ class ExpenseRepository(
                         )
                     }
                     _hasPendingSync.value = true
-                    ConnectivityState.updatePendingSyncCount(1)
+                    ConnectivityState.incrementPendingSyncCount()
                 }
             }
         }
@@ -644,7 +644,7 @@ class ExpenseRepository(
         // Mark expense for deletion sync
         syncManager.markForSync(SyncEntityType.EXPENSE, expense.expenseID.toString(), SyncOperation.DELETE)
         _hasPendingSync.value = true
-        ConnectivityState.updatePendingSyncCount(1)
+        ConnectivityState.incrementPendingSyncCount()
         
         // Get associated tags to update their amounts
         val tags = expenseTagsCrossRefDao.getTagsForExpense(expense.expenseID)

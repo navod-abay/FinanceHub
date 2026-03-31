@@ -19,18 +19,24 @@ import com.example.financehub.viewmodel.WishlistViewModel
 import com.example.financehub.data.database.Tags
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+import com.example.financehub.ui.components.NavBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WishlistScreen(
+    navController: NavController,
     viewModel: WishlistViewModel
 ) {
-    val wishlistItems by viewModel.wishlistItems.collectAsState()
+    val wishlistItems by viewModel.wishlistItems.collectAsStateWithLifecycle()
     val allTags by viewModel.allTags.collectAsState(initial = emptyList())
     var showDialog by remember { mutableStateOf(false) }
     // selectedItem is now WishlistWithTags? Or just Wishlist for edit?
     // ViewModel exposed WishlistWithTags.
     var selectedItem by remember { mutableStateOf<WishlistWithTags?>(null) }
+
 
     Scaffold(
         topBar = {
@@ -43,7 +49,8 @@ fun WishlistScreen(
             }) {
                 Icon(Icons.Default.Add, contentDescription = "Add Item")
             }
-        }
+        },
+        bottomBar = {NavBar(navController = navController)}
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
@@ -145,13 +152,13 @@ fun WishlistItemDialog(
                 OutlinedTextField(
                     value = minPriceStr,
                     onValueChange = { minPriceStr = it },
-                    label = { Text("Expected Price") },
+                    label = { Text("Minimum Price") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
                 OutlinedTextField(
                     value = maxPriceStr,
                     onValueChange = { maxPriceStr = it },
-                    label = { Text("Expected Price") },
+                    label = { Text("Maximum Price") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
