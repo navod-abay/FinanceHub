@@ -1,3 +1,4 @@
+This is a personal finance tracking app with client authoratative kotlin android application an python fast api server.
 Do not create diagrams or flowcharts. Focus on providing clear and concise textual explanations and code examples to illustrate concepts. Avoid using any visual elements in your responses.
 
 Do not create test cases or unit tests unless explicitly requested. 
