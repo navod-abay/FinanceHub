@@ -3,7 +3,6 @@ package com.example.financehub.sync
 import android.content.Context
 import android.util.Log
 import com.example.financehub.data.database.AppDatabase
-import com.example.financehub.data.database.EntityMapping
 import com.example.financehub.data.database.Expense
 import com.example.financehub.data.database.Tags
 import com.example.financehub.data.database.Target
@@ -53,6 +52,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import androidx.core.content.edit
+import com.example.financehub.data.database.SyncGroupEntity
+import com.example.financehub.network.models.EntityMappingResponse
 
 /**
  * SyncManager handles synchronization between local database and server
@@ -402,12 +403,10 @@ class SyncManager constructor(
         if (expenseTag.serverId == null && actualOperation == "DELETE") return null
         return when (actualOperation) {
             "CREATE" -> {
-                val expenseServerId = database.entityMappingDao().getServerId("expense", expenseTag.expenseID.toLong())
-                    ?: database.expenseDao().getExpenseById(expenseTag.expenseID)?.serverId
+                val expenseServerId = database.expenseDao().getExpenseById(expenseTag.expenseID)?.serverId
                     ?: expenseTag.expenseID.toString()
                 
-                val tagServerId = database.entityMappingDao().getServerId("tag", expenseTag.tagID.toLong())
-                    ?: database.tagsDao().getTagById(expenseTag.tagID)?.serverId
+                val tagServerId = database.tagsDao().getTagById(expenseTag.tagID)?.serverId
                     ?: expenseTag.tagID.toString()
                 
                 CreateExpenseTagOperation(
@@ -431,12 +430,10 @@ class SyncManager constructor(
         if (graphEdge.serverId == null && actualOperation == "DELETE") return null
         return when (actualOperation) {
             "CREATE" -> {
-                val fromTagServerId = database.entityMappingDao().getServerId("tag", graphEdge.fromTagId.toLong())
-                    ?: database.tagsDao().getTagById(graphEdge.fromTagId)?.serverId
+                val fromTagServerId = database.tagsDao().getTagById(graphEdge.fromTagId)?.serverId
                     ?: graphEdge.fromTagId.toString()
                 
-                val toTagServerId = database.entityMappingDao().getServerId("tag", graphEdge.toTagId.toLong())
-                    ?: database.tagsDao().getTagById(graphEdge.toTagId)?.serverId
+                val toTagServerId = database.tagsDao().getTagById(graphEdge.toTagId)?.serverId
                     ?: graphEdge.toTagId.toString()
                 
                 CreateGraphEdgeOperation(
@@ -491,8 +488,7 @@ class SyncManager constructor(
         if (wishlistTag.serverId == null && actualOperation == "DELETE") return null
         return when (actualOperation) {
             "CREATE" -> {
-                val tagServerId = database.entityMappingDao().getServerId("tag", wishlistTag.tagID.toLong())
-                    ?: database.tagsDao().getTagById(wishlistTag.tagID)?.serverId
+                val tagServerId = database.tagsDao().getTagById(wishlistTag.tagID)?.serverId
                     ?: wishlistTag.tagID.toString()
                 
                 CreateWishlistTagOperation(
@@ -526,19 +522,8 @@ class SyncManager constructor(
                     errorMessage = null
                 )
 
-                // Save entity mappings
-                for (mapping in groupResult.entityMappings) {
-                    database.entityMappingDao().insert(
-                        EntityMapping(
-                            entityType = mapping.entityType,
-                            localId = mapping.clientId.toLong(),
-                            serverId = mapping.serverId
-                        )
-                    )
-                }
-
                 // Clear pending sync flags for entities in this group
-                clearPendingSyncForGroup(groupId)
+                updateSyncDataForGroup(groupId, groupResult.entityMappings)
                 
             } else {
                 // Mark group as failed
@@ -553,14 +538,29 @@ class SyncManager constructor(
             }
         }
     }
-    
-    /**
-     * Clear pending sync flags for all entities in a group
-     */
+
+    private fun validateSyncGroup(entities: List<SyncGroupEntity>, mapping: List<EntityMappingResponse>): List<Pair<String, SyncGroupEntity>> {
+        val adhocIdToSyncEntityMap = HashMap<String, SyncGroupEntity>()
+        for (entity in entities) {
+            adhocIdToSyncEntityMap[entity.entityType + entity.localId.toString()] = entity
+        }
+        val serverIdToSyncEntityMap = HashMap<String, SyncGroupEntity>()
+        for (entity in mapping) {
+            var adhocId = entity.entityType + entity.clientId
+            if (adhocIdToSyncEntityMap.containsKey(adhocId)) {
+                serverIdToSyncEntityMap[entity.serverId] = adhocIdToSyncEntityMap[adhocId]!!
+            } else {
+                error("Sync group entity not found for $adhocId")
+            }
+
+        }
+        return serverIdToSyncEntityMap.toList()
+    }
+
+
     private suspend fun clearPendingSyncForGroup(groupId: Long) {
         val entities = database.syncGroupEntityDao().getEntitiesForGroup(groupId)
-        
-        for (entity in entities) {
+        for ( entity in entities) {
             when (entity.entityType) {
                 "expense" -> {
                     database.expenseDao().updateSyncMetadata(
@@ -581,19 +581,124 @@ class SyncManager constructor(
                     )
                 }
                 "target" -> {
-                    // Similar update for targets
+                    database.targetDao().updateSyncMetadata(
+                        id = entity.localId.toInt(),
+                        serverId = null,
+                        lastSyncedAt = System.currentTimeMillis(),
+                        syncOperation = null,
+                        pendingSync = false
+                    )
                 }
                 "expense_tag" -> {
-                    // Similar update for expense tags
+                    database.expenseTagsCrossRefDao().updateSyncMetadata(
+                        id = entity.localId,
+                        serverId = null,
+                        lastSyncedAt = System.currentTimeMillis(),
+                        syncOperation = null,
+                        pendingSync = false
+                    )
                 }
                 "graph_edge" -> {
-                    // Similar update for graph edges
+                    database.graphEdgeDAO().updateSyncMetadata(
+                        id = entity.localId,
+                        serverId = null,
+                        lastSyncedAt = System.currentTimeMillis(),
+                        syncOperation = null,
+                        pendingSync = false
+                    )
                 }
                 "wishlist" -> {
-                    // Similar update for wishlist
+                    database.wishlistDao().updateSyncMetadata(
+                        id = entity.localId.toInt(),
+                        serverId = null,
+                        lastSyncedAt = System.currentTimeMillis(),
+                        syncOperation = null,
+                        pendingSync = false
+                    )
                 }
                 "wishlist_tag" -> {
-                    // Similar update for wishlist tags
+                    database.wishlistDao().updateSyncMetadata(
+                        id = entity.localId.toInt(),
+                        serverId = null,
+                        lastSyncedAt = System.currentTimeMillis(),
+                        syncOperation = null,
+                        pendingSync = false
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Update server id and clear pending sync data for all entities in a group after a successful sync
+     */
+    private suspend fun updateSyncDataForGroup(groupId: Long, mapping: List<EntityMappingResponse>) {
+        val entities = database.syncGroupEntityDao().getEntitiesForGroup(groupId)
+        val serverIdMap = validateSyncGroup(entities, mapping)
+        for ((serverId, entity) in serverIdMap) {
+            when (entity.entityType) {
+                "expense" -> {
+                    database.expenseDao().updateSyncMetadata(
+                        expenseId = entity.localId.toInt(),
+                        serverId = serverId,
+                        lastSyncedAt = System.currentTimeMillis(),
+                        pendingSync = false,
+                        syncOperation = null
+                    )
+                }
+                "tag" -> {
+                    database.tagsDao().updateSyncMetadata(
+                        tagId = entity.localId.toInt(),
+                        serverId = serverId,
+                        lastSyncedAt = System.currentTimeMillis(),
+                        pendingSync = false,
+                        syncOperation = null
+                    )
+                }
+                "target" -> {
+                    database.targetDao().updateSyncMetadata(
+                        id = entity.localId.toInt(),
+                        serverId = serverId,
+                        lastSyncedAt = System.currentTimeMillis(),
+                        syncOperation = null,
+                        pendingSync = false
+                    )
+                }
+                "expense_tag" -> {
+                    database.expenseTagsCrossRefDao().updateSyncMetadata(
+                        id = entity.localId,
+                        serverId = serverId,
+                        lastSyncedAt = System.currentTimeMillis(),
+                        syncOperation = null,
+                        pendingSync = false
+                    )
+                }
+                "graph_edge" -> {
+                    database.graphEdgeDAO().updateSyncMetadata(
+                        id = entity.localId,
+                        serverId = serverId,
+                        lastSyncedAt = System.currentTimeMillis(),
+                        syncOperation = null,
+                        pendingSync = false
+                    )
+                }
+                "wishlist" -> {
+                    database.wishlistDao().updateSyncMetadata(
+                        id = entity.localId.toInt(),
+                        serverId = serverId,
+                        lastSyncedAt = System.currentTimeMillis(),
+                        syncOperation = null,
+                        pendingSync = false
+                    )
+                }
+                "wishlist_tag" -> {
+                    database.wishlistDao().updateSyncMetadata(
+                        id = entity.localId.toInt(),
+                        serverId = serverId,
+                        lastSyncedAt = System.currentTimeMillis(),
+                        syncOperation = null,
+                        pendingSync = false
+                    )
                 }
             }
         }
@@ -880,8 +985,7 @@ class SyncManager constructor(
                 if (localEdge.pendingSync) {
                     // Local has pending changes - local wins
                     database.graphEdgeDAO().updateSyncMetadata(
-                        fromTagId = localEdge.fromTagId,
-                        toTagId = localEdge.toTagId,
+                        id = localEdge.id,
                         serverId = localEdge.serverId,
                         lastSyncedAt = localEdge.lastSyncedAt,
                         pendingSync = true,
@@ -899,8 +1003,7 @@ class SyncManager constructor(
                 } else {
                     // Local version is same or newer - just update sync timestamp
                     database.graphEdgeDAO().updateSyncMetadata(
-                        fromTagId = localEdge.fromTagId,
-                        toTagId = localEdge.toTagId,
+                        id = localEdge.id,
                         serverId = localEdge.serverId,
                         lastSyncedAt = System.currentTimeMillis(),
                         pendingSync = false,

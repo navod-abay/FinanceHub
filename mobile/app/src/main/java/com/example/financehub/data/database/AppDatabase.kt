@@ -13,7 +13,6 @@ import com.example.financehub.data.dao.WishlistDao
 import com.example.financehub.data.dao.WishlistTagsDao
 import com.example.financehub.data.dao.SyncGroupDao
 import com.example.financehub.data.dao.SyncGroupEntityDao
-import com.example.financehub.data.dao.EntityMappingDao
 import com.example.financehub.data.database.models.TagRef
 
 @Database(
@@ -27,10 +26,9 @@ import com.example.financehub.data.database.models.TagRef
         WishlistTagsCrossRef::class,
         SyncGroup::class,
         SyncGroupEntity::class,
-        EntityMapping::class
     ],
     views = [TagRef::class],
-    version = 2
+    version = 3
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao
@@ -43,7 +41,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun wishlistTagsDao(): WishlistTagsDao
     abstract fun syncGroupDao(): SyncGroupDao
     abstract fun syncGroupEntityDao(): SyncGroupEntityDao
-    abstract fun entityMappingDao(): EntityMappingDao
 
     companion object {
         @Volatile
