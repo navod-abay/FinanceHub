@@ -44,11 +44,10 @@ interface ExpenseTagsCrossRefDao {
     @Query("""
         UPDATE expense_tags 
         SET serverId = :serverId, lastSyncedAt = :lastSyncedAt, pendingSync = :pendingSync, syncOperation = :syncOperation
-        WHERE expenseID = :expenseId AND tagID = :tagId
+        WHERE id = :id
     """)
     suspend fun updateSyncMetadata(
-        expenseId: Int,
-        tagId: Int,
+        id: Long,
         serverId: String?,
         lastSyncedAt: Long?,
         pendingSync: Boolean,

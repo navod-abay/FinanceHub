@@ -9,7 +9,7 @@ import json
 
 from .database import get_db, create_tables
 from .config import settings
-from .routes import operations, sync, query, batch_sync, atomic_sync
+from .routes import sync, query, batch_sync, atomic_sync
 from .logging_config import setup_logging
 
 # Setup logging
@@ -141,7 +141,6 @@ async def debug_info():
     }
 
 # Include routers
-app.include_router(operations.router, prefix="/api/v1/operations", tags=["operations"])
 app.include_router(sync.router, prefix="/api/v1/sync", tags=["sync"])
 app.include_router(batch_sync.router, prefix="/api/v1/sync", tags=["batch-sync"])
 app.include_router(atomic_sync.router, prefix="/api/v1/sync", tags=["atomic-sync"])

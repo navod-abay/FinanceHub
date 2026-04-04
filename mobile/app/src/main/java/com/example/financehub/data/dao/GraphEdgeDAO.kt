@@ -37,11 +37,10 @@ interface GraphEdgeDAO {
     @Query("""
         UPDATE graph_edges 
         SET serverId = :serverId, lastSyncedAt = :lastSyncedAt, pendingSync = :pendingSync, syncOperation = :syncOperation
-        WHERE fromTagId = :fromTagId AND toTagId = :toTagId
+        WHERE id = :id
     """)
     suspend fun updateSyncMetadata(
-        fromTagId: Int,
-        toTagId: Int,
+        id: Long,
         serverId: String?,
         lastSyncedAt: Long?,
         pendingSync: Boolean,

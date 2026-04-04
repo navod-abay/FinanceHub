@@ -9,6 +9,20 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TargetDao {
+
+    @Query("""
+        UPDATE targets 
+        SET serverId = :serverId, lastSyncedAt = :lastSyncedAt, pendingSync = :pendingSync, syncOperation = :syncOperation
+        WHERE id = :id
+    """)
+    suspend fun updateSyncMetadata(
+        id: Int,
+        serverId: String?,
+        lastSyncedAt: Long?,
+        pendingSync: Boolean,
+        syncOperation: String?
+    )
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTarget(target: Target)
 

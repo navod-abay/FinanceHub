@@ -3,6 +3,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.financehub.data.dao.ExpenseDao
 import com.example.financehub.data.dao.ExpenseTagsCrossRefDao
 import com.example.financehub.data.dao.GraphEdgeDAO
@@ -13,7 +15,6 @@ import com.example.financehub.data.dao.WishlistDao
 import com.example.financehub.data.dao.WishlistTagsDao
 import com.example.financehub.data.dao.SyncGroupDao
 import com.example.financehub.data.dao.SyncGroupEntityDao
-import com.example.financehub.data.dao.EntityMappingDao
 import com.example.financehub.data.database.models.TagRef
 
 @Database(
@@ -27,10 +28,9 @@ import com.example.financehub.data.database.models.TagRef
         WishlistTagsCrossRef::class,
         SyncGroup::class,
         SyncGroupEntity::class,
-        EntityMapping::class
     ],
     views = [TagRef::class],
-    version = 2
+    version = 3
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao
@@ -43,7 +43,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun wishlistTagsDao(): WishlistTagsDao
     abstract fun syncGroupDao(): SyncGroupDao
     abstract fun syncGroupEntityDao(): SyncGroupEntityDao
-    abstract fun entityMappingDao(): EntityMappingDao
 
     companion object {
         @Volatile
@@ -55,10 +54,17 @@ abstract class AppDatabase : RoomDatabase() {
                                 context.applicationContext,
                                 AppDatabase::class.java,
                                 "expense_database"
-                            ).fallbackToDestructiveMigration(false)
+                            ).addMigrations(MIGRATION_2_TO_3)
                     .build()
                 INSTANCE = instance
                 instance
+            }
+        }
+
+        val MIGRATION_2_TO_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Drop the table you no longer need
+                database.execSQL("DROP TABLE IF EXISTS entity_mappings")
             }
         }
     }
