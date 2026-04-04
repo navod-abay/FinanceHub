@@ -64,7 +64,7 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_2_TO_3 = object : Migration(2, 3) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 // Drop the table you no longer need
-                database.execSQL("DROP TABLE IF EXISTS name_of_the_table_to_delete")
+                database.execSQL("DROP TABLE IF EXISTS entity_mappings")
             }
         }
     }
