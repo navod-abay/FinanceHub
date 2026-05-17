@@ -1,5 +1,7 @@
 package com.example.financehub.ui
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,6 +21,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
@@ -58,19 +61,20 @@ fun AddExpense(navController: NavController, viewModel: ExpenseViewModel) {
 
 
 
+@RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Composable
 fun ExpenseForm(
     viewModel: ExpenseViewModel,
     navController: NavController
 ) {
-    var selectedTags by remember { mutableStateOf(setOf<TagRef>()) }
     var showTagDialog by remember { mutableStateOf(false) }
-    var newTagText by remember { mutableStateOf("") }
+    val newTagText by viewModel.newTagText.collectAsState()
 
     val newTags  = remember { mutableStateListOf<String>() }
 
 
     val reccommendedTags by viewModel.reccommendedTags.collectAsState()
+    val selectedTags by viewModel.selectedTags.collectAsState()
 
     // Predefined tags (you can modify this list)
     val suggestedTags by viewModel.matchingTags.collectAsState()
@@ -202,7 +206,7 @@ fun ExpenseForm(
                     trailingIcon = {
                         IconButton(
                             onClick = {
-                                selectedTags = selectedTags - tag
+                                viewModel.deselectTag(tag)
                             }
                         ) {
                             Icon(
@@ -250,7 +254,6 @@ fun ExpenseForm(
         Button(
             onClick = {
                         viewModel.addExpense(
-                            tags = selectedTags,
                             newTags = newTags
                         )
                         navController.navigate("home")
@@ -266,7 +269,7 @@ fun ExpenseForm(
         AlertDialog(
             onDismissRequest = {
                 showTagDialog = false
-                newTagText = ""
+                viewModel.updateNewTagText("")
             },
             title = { Text("Add Tag") },
             text = {
@@ -279,8 +282,7 @@ fun ExpenseForm(
                     OutlinedTextField(
                         value = newTagText,
                         onValueChange = {
-                            newTagText = it
-                            viewModel.updateQuery(it)
+                            viewModel.updateNewTagText(it)
                                         },
                         keyboardOptions = KeyboardOptions(
                             capitalization = KeyboardCapitalization.Sentences, // Capitalize first letter
@@ -312,13 +314,7 @@ fun ExpenseForm(
 
                                 selected = tag in selectedTags,
                                 onClick = {
-                                    newTagText = ""
-                                    selectedTags = if (selectedTags.contains(tag)) {
-                                        selectedTags - tag
-                                    } else {
-                                        viewModel.getReccomendations(tag.tagID)
-                                        selectedTags + tag
-                                    }
+                                    viewModel.clickSuggestedTag(tag)
                                 },
                                 label = { Text(tag.tag) }
                             )
@@ -326,17 +322,8 @@ fun ExpenseForm(
                         reccommendedTags.forEach { tag ->
                             FilterChip(
                                 selected = false,
-                                onClick = {
-                                    newTagText = ""
-                                    // When clicking on a reccommended tag, add it to selected tags
-                                    if (tag !in selectedTags) {
-                                        selectedTags = selectedTags +  tag
-                                        reccommendedTags.filter { it.tagID != tag.tagID}.forEach {
-                                            viewModel.removeRecommendation(it)
-                                        }
-                                    }
-                                },
-                                label = { Text(tag.tag) }
+                                onClick = { viewModel.clickRecommendedTag(tag) },
+                                label = { Text(tag.tag, color=Color.Red) }
                             )
                         }
                     }
@@ -348,7 +335,7 @@ fun ExpenseForm(
                         println("Add Button Pressed with tag: $newTagText")
                         if (newTagText.isNotBlank()) {
                             newTags.add(newTagText)
-                            newTagText = ""
+                            viewModel.updateNewTagText("")
                             println("New tags: $newTags")
                         }
                         showTagDialog = false
@@ -365,7 +352,7 @@ fun ExpenseForm(
                 TextButton(
                     onClick = {
                         showTagDialog = false
-                        newTagText = ""
+                        viewModel.updateNewTagText("")
                     }
                 ) {
                     Text("Cancel")

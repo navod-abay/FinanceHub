@@ -83,13 +83,17 @@ class ExpenseRepository(
         syncManager.markForSync(SyncEntityType.EXPENSE, expenseID.toString(), SyncOperation.CREATE)
         _hasPendingSync.value = true
         ConnectivityState.incrementPendingSyncCount()
+
+        var allTags: List<Int> = emptyList()
         
         tags.forEach { tag ->
             addExistingTagforExpense(expenseID, expenseWithSync, tag)
+            allTags = allTags + tag.tagID
         }
         newTags.forEach { tag ->
-            addNewTagforExpense(expenseID, expenseWithSync, tag)
+            allTags = allTags + addNewTagforExpense(expenseID, expenseWithSync, tag)
         }
+        addGraphEdgesForExpense(allTags)
     }
 
     fun getPagedExpenses(): Flow<PagingData<Expense>> {
@@ -199,7 +203,7 @@ class ExpenseRepository(
         }
     }
 
-    private suspend fun addNewTagforExpense(expenseID: Int, expense: Expense, tag: String) {
+    private suspend fun addNewTagforExpense(expenseID: Int, expense: Expense, tag: String): Int {
         // Create tag with sync metadata
         val newTag = Tags(
             tag = tag,
@@ -234,6 +238,7 @@ class ExpenseRepository(
         
         // Mark expense-tag relationship for sync
         syncManager.markForSync(SyncEntityType.EXPENSE_TAG, "$expenseID-$tagID", SyncOperation.CREATE)
+        return tagID
     }
 
     private suspend fun addExistingTagforExpense(expenseID: Int, expense: Expense, tag: TagRef) {
@@ -587,12 +592,12 @@ class ExpenseRepository(
         return tagRefDao.getAllTagRefs()
     }
 
-    suspend fun addGraphEdgesForExpense(tags: List<Tags>){
+    suspend fun addGraphEdgesForExpense(tags: List<Int>){
         for (i in tags.indices) {
             for (j in tags.indices) {
                 if (i != j) {
-                    val fromTagId = tags[i].tagID
-                    val toTagId = tags[j].tagID
+                    val fromTagId = tags[i]
+                    val toTagId = tags[j]
                     val existingEdge = graphEdgeDAO.getGraphEdgeByTagIds(fromTagId, toTagId)
                     if (existingEdge != null) {
                         // Update existing edge

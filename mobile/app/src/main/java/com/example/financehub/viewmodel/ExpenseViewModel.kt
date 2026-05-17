@@ -1,5 +1,8 @@
 package com.example.financehub.viewmodel
 
+import android.os.Build
+import androidx.annotation.RequiresApi
+import androidx.compose.material3.Text
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
@@ -15,14 +18,16 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import java.util.Date
 
-
+private const val maxRecommendedTags = 5
 class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() {
-    private val _query = MutableStateFlow("")
+
+    
     var name: MutableState<String> = mutableStateOf("")
     var amount: MutableState<String> = mutableStateOf("")
 
@@ -36,10 +41,7 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
     var selectedTag: MutableState<TagRef?> = mutableStateOf(null)
     var targetAmount: MutableState<String> = mutableStateOf("")
 
-    private val _reccommendedTags = MutableStateFlow<List<TagRef>>(emptyList())
-    val reccommendedTags: StateFlow<List<TagRef>> = _reccommendedTags.asStateFlow()
 
-    val reccommendationService = ReccommendationService(repository)
 
     // Sync-related state
     val syncState: StateFlow<SyncRepositoryState> = repository.getSyncState()
@@ -48,7 +50,7 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
     private val _operationResult = MutableStateFlow<String?>(null)
     val operationResult: StateFlow<String?> = _operationResult
 
-    fun addExpense(tags: Set<TagRef>, newTags: List<String>) {
+    fun addExpense(newTags: List<String>) {
         viewModelScope.launch {
             try {
                 if (name.value.isBlank() || amount.value.isBlank()) {
@@ -70,7 +72,7 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
                         month = month,
                         year = year
                     ),
-                    tags = tags,
+                    tags = _selectedTags.value,
                     newTags = newTags
                 )
                 
@@ -87,22 +89,92 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
         }
     }
 
-    fun getReccomendations(tagId: Int) {
-        viewModelScope.launch {
-            val recs = reccommendationService.getTagReccomendations(tagId)
-            _reccommendedTags.value = recs
+
+    // Tag adding component functions
+    private val _reccommendedTags = MutableStateFlow<List<TagRef>>(emptyList())
+    val reccommendedTags: StateFlow<List<TagRef>> = _reccommendedTags.asStateFlow()
+
+
+    private val _selectedTags = MutableStateFlow<Set<TagRef>>(emptySet())
+    val selectedTags: StateFlow<Set<TagRef>> = _selectedTags.asStateFlow()
+    val reccommendationService = ReccommendationService(repository)
+
+    private var _newTagText = MutableStateFlow<String>("")
+    val newTagText = _newTagText.asStateFlow()
+
+    fun clickRecommendedTag(tag: TagRef) {
+            _selectedTags.value = if (_selectedTags.value.contains(tag)) {
+                _reccommendedTags.value.filter { tag.tagID != it.tagID }
+                _selectedTags.value - tag
+            } else {
+                _reccommendedTags.value.filter { tag.tagID != it.tagID }
+                getReccomendations(tag.tagID)
+                _selectedTags.value + tag
+            }
+
+    }
+
+    fun clickSuggestedTag(tag: TagRef) {
+        _selectedTags.value = if(_selectedTags.value.contains(tag)) {
+            _selectedTags.value - tag
+        } else {
+            _newTagText.value = ""
+            getReccomendations(tag.tagID)
+            _selectedTags.value + tag
         }
     }
 
-    val matchingTags: StateFlow<List<TagRef>> = _query
+    fun deselectTag(tag: TagRef) {
+        _selectedTags.value -= tag
+    }
+
+    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
+    fun getReccomendations(tagId: Int) {
+        viewModelScope.launch {
+            val recs = reccommendationService.getTagReccomendations(tagId) - _selectedTags.value
+            if (_reccommendedTags.value.isNotEmpty()) {
+                val tagRefMap = mutableMapOf<Int, TagRef>()
+                recs.associateByTo(tagRefMap){it.tagID}
+                val newRecs = mutableListOf<TagRef>()
+                val existingNotRecommendedTagRef = mutableListOf<TagRef>()
+                _reccommendedTags.value.forEach {
+                    if (tagRefMap.contains(it.tagID) &&  newRecs.size < maxRecommendedTags) {
+                        newRecs.addLast(it)
+                        tagRefMap.remove(it.tagID)
+                    }else {
+                        existingNotRecommendedTagRef.addLast(it)
+                    }
+                }
+
+                val newPreviouslyUnrecommendedTagRef = tagRefMap.values
+                for (tagRef in newPreviouslyUnrecommendedTagRef) {
+                    if (newRecs.size > maxRecommendedTags)
+                        break
+                    newRecs.addLast(tagRef)
+                }
+                for (tagRef in existingNotRecommendedTagRef) {
+                    if (newRecs.size > maxRecommendedTags)
+                        break
+                    newRecs.addLast(tagRef)
+                }
+                _reccommendedTags.value = newRecs
+
+            }
+            else {
+                _reccommendedTags.value = recs
+            }
+        }
+    }
+
+    val matchingTags: StateFlow<List<TagRef>> = newTagText
         .debounce(300) // Wait for user to stop typing
         .flatMapLatest { query ->
             if (query.isBlank()) flowOf(emptyList()) else repository.getMatchingTags(query)
         }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    fun updateQuery(newQuery: String) {
-        _query.value = newQuery
+    fun updateNewTagText(newQuery: String) {
+        _newTagText.value = newQuery
     }
 
     var targetError: MutableState<String?> = mutableStateOf(null)

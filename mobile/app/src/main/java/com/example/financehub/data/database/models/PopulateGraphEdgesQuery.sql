@@ -1,0 +1,2 @@
+INSERT INTO graph_edges (fromTagId, toTagId, weight, createdAt, updatedAt, pendingSync, syncOperation ) SELECT a.tagID AS fromTagID, b.tagId AS toTagId, COUNT(*), STRFTIME('%Y-%m-%d %H:%M:%S', 'now') AS createdAt,    STRFTIME('%Y-%m-%d %H:%M:%S', 'now') AS updatedAt, 1 AS pendingSync,
+                                                                                                                        'CREATE' AS syncOperation  FROM expense_tags AS a JOIN expense_tags AS b ON a.expenseID= b.expenseID WHERE a.tagID <> b.tagID GROUP BY a.tagID, b.tagID;

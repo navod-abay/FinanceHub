@@ -7,9 +7,14 @@ import com.example.financehub.data.database.Wishlist
 import com.example.financehub.data.database.WishlistWithTags
 import com.example.financehub.data.repository.WishlistRepository
 import com.example.financehub.data.dao.TagsDao
+import com.example.financehub.data.database.models.TagRef
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -20,6 +25,8 @@ class WishlistViewModel(
 
     // Using DAO directly for tags if no repository exists.
     // Ideally we should have a TagsRepository.
+    private val _query = MutableStateFlow("")
+
     val allTags: Flow<List<Tags>> = tagsDao.getAllTags()
 
     val wishlistItems: StateFlow<List<WishlistWithTags>> = wishlistRepository.allWishlistItems
@@ -28,14 +35,23 @@ class WishlistViewModel(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
-
-    fun addWishlistItem(name: String, minPrice: Int, maxPrice: Int, tagIds: List<Int>) {
+    fun updateQuery(newQuery: String) {
+        _query.value = newQuery
+    }
+    fun addWishlistItem(name: String, minPrice: Int, maxPrice: Int, tagIds: List<Tags>) {
         viewModelScope.launch {
             wishlistRepository.addWishlistItem(name, minPrice, maxPrice, tagIds)
         }
     }
 
-    fun updateWishlistItem(item: Wishlist, tagIds: List<Int>) {
+    val matchingTags: StateFlow<List<Tags>> = _query
+        .debounce(300) // Wait for user to stop typing
+        .flatMapLatest { query ->
+            if (query.isBlank()) flowOf(emptyList()) else wishlistRepository.getMatchingTags(query)
+        }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    fun updateWishlistItem(item: Wishlist, tagIds: List<Tags>) {
         viewModelScope.launch {
             wishlistRepository.updateWishlistItem(item, tagIds)
         }

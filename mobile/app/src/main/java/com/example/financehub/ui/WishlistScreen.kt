@@ -1,8 +1,10 @@
 package com.example.financehub.ui
 
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -18,6 +20,7 @@ import com.example.financehub.data.database.WishlistWithTags
 import com.example.financehub.viewmodel.WishlistViewModel
 import com.example.financehub.data.database.Tags
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -88,7 +91,8 @@ fun WishlistScreen(
                         ), tagIds)
                     }
                     showDialog = false
-                }
+                },
+                viewModel = viewModel
             )
         }
     }
@@ -124,19 +128,25 @@ fun WishlistItemRow(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WishlistItemDialog(
     item: WishlistWithTags?,
     allTags: List<Tags>,
     onDismiss: () -> Unit,
-    onSave: (String, Int, Int, List<Int>) -> Unit
+    onSave: (String, Int, Int, List<Tags>) -> Unit,
+    viewModel: WishlistViewModel
 ) {
     var name by remember { mutableStateOf(item?.wishlist?.name ?: "") }
     var minPriceStr by remember { mutableStateOf(item?.wishlist?.minPrice?.toString() ?: "") }
     var maxPriceStr by remember { mutableStateOf(item?.wishlist?.minPrice?.toString() ?: "") }
     // Multi-select state
-    val initialTagIds = item?.tags?.map { it.tagID } ?: emptyList()
-    var selectedTagIds by remember { mutableStateOf(initialTagIds.toSet()) }
+    val initialTagIds = item?.tags ?: emptyList()
+    var selectedTags by remember { mutableStateOf(initialTagIds.toSet()) }
+    var tagQuery by remember { mutableStateOf("") }
+    var expanded by remember { mutableStateOf(false) }
+    val suggestedTags by viewModel.matchingTags.collectAsState()
+
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -164,41 +174,74 @@ fun WishlistItemDialog(
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Text("Select Tags:", style = MaterialTheme.typography.labelMedium)
-                LazyColumn(modifier = Modifier.height(150.dp)) {
-                    items(allTags) { tag ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    selectedTagIds = if (selectedTagIds.contains(tag.tagID)) {
-                                        selectedTagIds - tag.tagID
-                                    } else {
-                                        selectedTagIds + tag.tagID
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(selectedTags.toList()) { tag ->
+                        InputChip(
+                            selected = true,
+                            onClick = { },
+                            label = { Text(tag.tag) },
+                            trailingIcon = {
+                                IconButton(
+                                    onClick = {
+                                        selectedTags = selectedTags - tag
                                     }
+                                ) {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = "Remove tag"
+                                    )
                                 }
-                        ) {
-                            Checkbox(
-                                checked = selectedTagIds.contains(tag.tagID),
-                                onCheckedChange = { checked ->
-                                    selectedTagIds = if (checked) {
-                                        selectedTagIds + tag.tagID
-                                    } else {
-                                        selectedTagIds - tag.tagID
-                                    }
+                            }
+                        )
+                    }
+                }
+                ExposedDropdownMenuBox(
+                    expanded = expanded && suggestedTags.isNotEmpty(),
+                    onExpandedChange = { expanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = tagQuery,
+                        onValueChange = {
+                            tagQuery = it
+                            viewModel.updateQuery(it)
+                            expanded = true
+                        },
+                        label = { Text("Type or select tag") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
+                        singleLine = true,
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                        }
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded && suggestedTags.isNotEmpty(),
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        suggestedTags.forEach { tag ->
+                            DropdownMenuItem(
+                                text = { Text(tag.tag) },
+                                onClick = {
+                                    selectedTags = selectedTags + tag
+                                    tagQuery = ""
+                                    expanded = false
                                 }
                             )
-                            Text(text = tag.tag)
                         }
                     }
                 }
+
             }
         },
         confirmButton = {
             TextButton(onClick = {
                 val minPrice = minPriceStr.toIntOrNull() ?: 0
                 val maxPrice = maxPriceStr.toIntOrNull() ?: 0
-                onSave(name, minPrice, maxPrice, selectedTagIds.toList())
+                onSave(name, minPrice, maxPrice, selectedTags.toList())
             }) {
                 Text("Save")
             }
@@ -210,4 +253,5 @@ fun WishlistItemDialog(
         }
     )
 }
+
 
