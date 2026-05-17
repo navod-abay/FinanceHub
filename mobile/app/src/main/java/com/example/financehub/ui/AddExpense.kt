@@ -236,18 +236,45 @@ fun ExpenseForm(
                     }
                 )
             }
-            item {
-                AssistChip(
-                    onClick = { showTagDialog = true },
-                    label = { Text("Add Tag") },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Default.Add,
-                            contentDescription = "Add tag"
-                        )
-                    }
+            items(suggestedTags) { tag ->
+                InputChip(
+                    selected = true,
+                    onClick = { viewModel.clickSuggestedTag(tag)},
+                    label = { Text(tag.tag) },
                 )
             }
+            items(reccommendedTags) { tag ->
+                InputChip(
+                    selected = true,
+                    onClick = { viewModel.clickRecommendedTag(tag)},
+                    label = { Text(tag.tag) },
+                )
+            }
+
+        }
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Custom tag input
+            OutlinedTextField(
+                value = newTagText,
+                onValueChange = {
+                    viewModel.updateNewTagText(it)
+                },
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Sentences, // Capitalize first letter
+                    imeAction = ImeAction.Done // Show "Done" on keyboard
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        focusManager.clearFocus()
+                        showTagDialog = false
+                    }
+                ),
+                label = { Text("New Tag") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
         }
 
         // Submit button
@@ -264,102 +291,9 @@ fun ExpenseForm(
         }
     }
 
-    // Tag selection dialog
-    if (showTagDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                showTagDialog = false
-                viewModel.updateNewTagText("")
-            },
-            title = { Text("Add Tag") },
-            text = {
-                val lastNameFocusRequester = remember { FocusRequester() }
-                val focusManager = LocalFocusManager.current
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Custom tag input
-                    OutlinedTextField(
-                        value = newTagText,
-                        onValueChange = {
-                            viewModel.updateNewTagText(it)
-                                        },
-                        keyboardOptions = KeyboardOptions(
-                            capitalization = KeyboardCapitalization.Sentences, // Capitalize first letter
-                            imeAction = ImeAction.Done // Show "Done" on keyboard
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onDone = {
-                                focusManager.clearFocus()
-                                showTagDialog = false
-                            }
-                        ),
-                        label = { Text("New Tag") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
 
-                    // Predefined tags
-                    Text(
-                        text = "Suggested Tags",
-                        style = MaterialTheme.typography.titleSmall
-                    )
 
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        suggestedTags.forEach { tag ->
-                            FilterChip(
 
-                                selected = tag in selectedTags,
-                                onClick = {
-                                    viewModel.clickSuggestedTag(tag)
-                                },
-                                label = { Text(tag.tag) }
-                            )
-                        }
-                        reccommendedTags.forEach { tag ->
-                            FilterChip(
-                                selected = false,
-                                onClick = { viewModel.clickRecommendedTag(tag) },
-                                label = { Text(tag.tag, color=Color.Red) }
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        println("Add Button Pressed with tag: $newTagText")
-                        if (newTagText.isNotBlank()) {
-                            newTags.add(newTagText)
-                            viewModel.updateNewTagText("")
-                            println("New tags: $newTags")
-                        }
-                        showTagDialog = false
-                    }
-                ) {
-                    if(newTagText.isNotBlank()) {
-                        Text("Add")
-                    } else {
-                        Text("Done")
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showTagDialog = false
-                        viewModel.updateNewTagText("")
-                    }
-                ) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
 }
 
 
