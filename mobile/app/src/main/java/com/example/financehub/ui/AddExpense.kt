@@ -2,6 +2,7 @@ package com.example.financehub.ui
 
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,18 +18,17 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import com.example.financehub.data.database.models.TagRef
 
 
+@RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Composable
 fun AddExpense(navController: NavController, viewModel: ExpenseViewModel) {
     var selectedTab by remember { mutableStateOf(0) }
@@ -238,14 +238,14 @@ fun ExpenseForm(
             }
             items(suggestedTags) { tag ->
                 InputChip(
-                    selected = true,
+                    selected = false,
                     onClick = { viewModel.clickSuggestedTag(tag)},
                     label = { Text(tag.tag) },
                 )
             }
             items(reccommendedTags) { tag ->
                 InputChip(
-                    selected = true,
+                    selected = false,
                     onClick = { viewModel.clickRecommendedTag(tag)},
                     label = { Text(tag.tag) },
                 )
@@ -272,7 +272,20 @@ fun ExpenseForm(
                     }
                 ),
                 label = { Text("New Tag") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                trailingIcon = {
+                    if(newTagText.isNotEmpty()) {
+                        IconButton(onClick = {
+                            newTags + newTagText
+                            viewModel.updateNewTagText("")
+                        }) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = "Add New Tag"
+                            )
+                        }
+                    }
+                }
             )
 
         }

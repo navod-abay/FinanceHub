@@ -51,7 +51,7 @@ fun NavGraph(navController: NavHostController) {
     }
 
     val expenseViewModel by lazy { ExpenseViewModel(repository) }
-    val homeScreenViewModel by lazy { HomeScreenViewModel(repository) }
+    val homeScreenViewModel by lazy { HomeScreenViewModel(repository, wishlistRepository) }
     val transactionsViewModel by lazy { TransactionsViewModel(repository) }
     val analyticsViewModel by lazy { AnalyticsViewModel(repository) }
     val tagsViewModel by lazy { TagsViewModel(repository) }

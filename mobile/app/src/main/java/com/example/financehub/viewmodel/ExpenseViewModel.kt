@@ -82,7 +82,8 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
                 // Reset form
                 name.value = ""
                 amount.value = ""
-                
+                _selectedTags.value = emptySet<TagRef>()
+                _reccommendedTags.value = emptyList<TagRef>()
             } catch (e: Exception) {
                 _operationResult.value = "Failed to add expense: ${e.message}"
             }
@@ -102,6 +103,7 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
     private var _newTagText = MutableStateFlow<String>("")
     val newTagText = _newTagText.asStateFlow()
 
+    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
     fun clickRecommendedTag(tag: TagRef) {
             _selectedTags.value = if (_selectedTags.value.contains(tag)) {
                 _reccommendedTags.value.filter { tag.tagID != it.tagID }
@@ -220,22 +222,5 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
         }
     }
 
-    fun removeRecommendation(tag: TagRef) {
-        _reccommendedTags.value = _reccommendedTags.value.filter { it.tagID != tag.tagID }
-    }
-
-    /**
-     * Clear operation result message
-     */
-    fun clearOperationResult() {
-        _operationResult.value = null
-    }
-
-    /**
-     * Check if any operation is in progress
-     */
-    fun isOperationInProgress(): Boolean {
-        return syncState.value == SyncRepositoryState.SYNCING
-    }
 
 }

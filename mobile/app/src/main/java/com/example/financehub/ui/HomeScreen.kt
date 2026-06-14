@@ -115,6 +115,7 @@ fun SnapshotGrid(navController: NavController, viewModel: HomeScreenViewModel) {
     val highestTag = viewModel.highestTag.collectAsState()
     val missed by viewModel.missedTargets.collectAsState()
     val total by viewModel.totalTargets.collectAsState()
+    val wishlistTotalValues by viewModel.wishlistValue.collectAsState()
 
     val missedDisplay = "$missed / $total"
     val missedSubtitle = when {
@@ -125,7 +126,9 @@ fun SnapshotGrid(navController: NavController, viewModel: HomeScreenViewModel) {
 
     val cardData = listOf(
         Triple("Most spent tag", highestTag.value.tag, ""),
-        Triple("Missed Targets", missedDisplay, missedSubtitle)
+        Triple("Missed Targets", missedDisplay, missedSubtitle),
+        Triple("Wishlist Value", "",
+            wishlistTotalValues.first.toString() + " - " + wishlistTotalValues.second.toString())
     )
 
     LazyVerticalGrid(

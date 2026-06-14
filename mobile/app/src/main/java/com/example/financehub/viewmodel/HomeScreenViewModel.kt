@@ -8,6 +8,7 @@ import com.example.financehub.data.database.TagWithAmount
 import com.example.financehub.data.repository.ExpenseRepository
 import com.example.financehub.data.repository.SyncRepositoryResult
 import com.example.financehub.data.repository.SyncRepositoryState
+import com.example.financehub.data.repository.WishlistRepository
 import com.example.financehub.sync.SyncProgress
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,12 +21,17 @@ import java.util.Calendar
 
 
 class HomeScreenViewModel(
-    private val repository: ExpenseRepository
+    private val repository: ExpenseRepository,
+    private val wishlistRepository: WishlistRepository
 ) : ViewModel() {
 
     private  val _highestTag = MutableStateFlow<TagWithAmount>(TagWithAmount("Loading...", 0))
     val highestTag: StateFlow<TagWithAmount> = _highestTag
 
+
+    private val _wishlistValue = MutableStateFlow<Pair<Int,Int>>(Pair<Int, Int>(0,0))
+
+    val wishlistValue: StateFlow<Pair<Int, Int>> = _wishlistValue
     // LiveData for monthly total
     private val _monthlyTotal = MutableStateFlow<Int>(0)
     val monthlyTotal: StateFlow<Int> = _monthlyTotal
@@ -59,7 +65,7 @@ class HomeScreenViewModel(
         viewModelScope.launch {
             combine(
                 repository.getCurrentMonthTotal(currentMonth + 1, currentYear),
-                repository.getTopTagForMonth(currentMonth, currentYear)
+                repository.getTopTagForMonth(currentMonth, currentYear),
             ) { total, topTag ->
                 Pair(total, topTag)
             }.map { (total, topTag) ->
@@ -72,6 +78,11 @@ class HomeScreenViewModel(
             repository.getMonthlyTargetsStats().collect { (missed, total) ->
                 _missedTargets.value = missed
                 _totalTargets.value = total
+            }
+        }
+        viewModelScope.launch {
+            wishlistRepository.getWishlistValues().collect { values ->
+                _wishlistValue.value = values
             }
         }
         

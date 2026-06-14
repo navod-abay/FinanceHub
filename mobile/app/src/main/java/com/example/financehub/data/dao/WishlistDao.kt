@@ -5,6 +5,14 @@ import com.example.financehub.data.database.Wishlist
 import com.example.financehub.data.database.WishlistWithTags
 import kotlinx.coroutines.flow.Flow
 
+
+data class WishListValues (
+    val minTotal: Int = 0,
+    val maxTotal: Int =0
+)
+
+
+
 @Dao
 interface WishlistDao {
     @Query("SELECT * FROM wishlist WHERE  syncOperation != 'DELETE' ORDER BY createdAt DESC")
@@ -21,6 +29,9 @@ interface WishlistDao {
 
     @Delete
     suspend fun deleteWishlist(item: Wishlist)
+
+    @Query("SELECT SUM(minPrice) AS minTotal, SUM(maxPrice) AS maxTotal FROM wishlist")
+    fun getTotalWishlistValues(): Flow<WishListValues>
     
     @Query("UPDATE wishlist SET pendingSync = 1, syncOperation = :operation, updatedAt = :timestamp WHERE id = :id")
     suspend fun markForSync(id: Int, operation: String, timestamp: Long)

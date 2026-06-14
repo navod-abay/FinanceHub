@@ -13,6 +13,7 @@ import com.example.financehub.sync.SyncManager
 import com.example.financehub.sync.SyncEntityType
 import com.example.financehub.sync.SyncOperation
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.util.UUID
 
 class WishlistRepository(
@@ -92,6 +93,15 @@ class WishlistRepository(
                 }
             }
         }
+    }
+
+    fun getWishlistValues(): Flow<Pair<Int, Int>> {
+        return wishlistDao.getTotalWishlistValues().map { it ->
+            Pair(
+                it.minTotal ?: 0,
+                it.maxTotal ?: 0
+            )
+    }
     }
 
     fun getMatchingTags(query: String): Flow<List<Tags>> {
