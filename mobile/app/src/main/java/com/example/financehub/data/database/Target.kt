@@ -1,5 +1,6 @@
 package com.example.financehub.data.database
 
+import android.R
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
@@ -50,3 +51,5 @@ data class Target(
     @ColumnInfo(name = "updatedAt")
     val updatedAt: Long = System.currentTimeMillis()  // When last modified locally
 )
+
+data class TargetWithProgress(val month: Int, val year: Int, val tag: String, val amount: Int, val spent: Int )

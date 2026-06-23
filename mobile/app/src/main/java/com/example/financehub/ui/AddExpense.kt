@@ -1,6 +1,7 @@
 package com.example.financehub.ui
 
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -70,7 +71,7 @@ fun ExpenseForm(
     var showTagDialog by remember { mutableStateOf(false) }
     val newTagText by viewModel.newTagText.collectAsState()
 
-    val newTags  = remember { mutableStateListOf<String>() }
+    val newTags  = viewModel.newTags
 
 
     val reccommendedTags by viewModel.reccommendedTags.collectAsState()
@@ -275,10 +276,7 @@ fun ExpenseForm(
                 modifier = Modifier.fillMaxWidth(),
                 trailingIcon = {
                     if(newTagText.isNotEmpty()) {
-                        IconButton(onClick = {
-                            newTags + newTagText
-                            viewModel.updateNewTagText("")
-                        }) {
+                        IconButton(onClick = {viewModel.onNewTagTextAddition()}) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowForward,
                                 contentDescription = "Add New Tag"
@@ -293,9 +291,7 @@ fun ExpenseForm(
         // Submit button
         Button(
             onClick = {
-                        viewModel.addExpense(
-                            newTags = newTags
-                        )
+                        viewModel.addExpense()
                         navController.navigate("home")
             },
             modifier = Modifier.fillMaxWidth()

@@ -4,6 +4,7 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.material3.Text
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -41,6 +42,8 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
     var selectedTag: MutableState<TagRef?> = mutableStateOf(null)
     var targetAmount: MutableState<String> = mutableStateOf("")
 
+    val newTags = mutableStateListOf<String>()
+
 
 
     // Sync-related state
@@ -50,24 +53,42 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
     private val _operationResult = MutableStateFlow<String?>(null)
     val operationResult: StateFlow<String?> = _operationResult
 
-    fun addExpense(newTags: List<String>) {
+    fun onNewTagTextAddition() {
+        if (_newTagText.value.isNotBlank()) {
+            newTags.add(_newTagText.value) // Mutates the state directly in the VM
+            _newTagText.value = ""        // Clears out the input text field
+        }
+    }
+
+    fun addExpense() {
+        val nameVal = name.value
+        val month = monthState.value
+        val year = yearState.value
+        val day = dayState.value
+        val selectedTagsVal  = selectedTags
+        val amountVal = amount.value
+        // Reset form
+        name.value = ""
+        amount.value = ""
+        _selectedTags.value = emptySet<TagRef>()
+        _reccommendedTags.value = emptyList<TagRef>()
         viewModelScope.launch {
             try {
-                if (name.value.isBlank() || amount.value.isBlank()) {
+                if (nameVal.isBlank() || amountVal.isBlank()) {
                     _operationResult.value = "Please fill in all required fields"
                     return@launch
                 }
                 
-                val day: Int = if (dayState.value.isBlank()) dateTuple.first else dayState.value.toInt()
+                val day: Int = if (day.isBlank()) dateTuple.first else day.toInt()
                 val month: Int =
-                    if (monthState.value.isBlank()) dateTuple.second else monthState.value.toInt()
+                    if (month.isBlank()) dateTuple.second else month.toInt()
                 val year: Int =
-                    if (yearState.value.isBlank()) dateTuple.third else yearState.value.toInt()
+                    if (year.isBlank()) dateTuple.third else year.toInt()
                 print("new Tags in view model: $newTags")
                 repository.insertExpense(
                     Expense(
-                        title = name.value,
-                        amount = amount.value.toInt(),
+                        title = nameVal,
+                        amount = amountVal.toInt(),
                         date = day,
                         month = month,
                         year = year
@@ -79,15 +100,12 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
                 _operationResult.value = "Expense added successfully"
                 repository.triggerSync()
                 
-                // Reset form
-                name.value = ""
-                amount.value = ""
-                _selectedTags.value = emptySet<TagRef>()
-                _reccommendedTags.value = emptyList<TagRef>()
+
             } catch (e: Exception) {
                 _operationResult.value = "Failed to add expense: ${e.message}"
             }
         }
+
     }
 
 
@@ -116,6 +134,7 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
 
     }
 
+    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
     fun clickSuggestedTag(tag: TagRef) {
         _selectedTags.value = if(_selectedTags.value.contains(tag)) {
             _selectedTags.value - tag

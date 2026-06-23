@@ -11,6 +11,7 @@ import com.example.financehub.data.dao.GraphEdgeDAO
 import com.example.financehub.data.dao.TagRefDao
 import com.example.financehub.data.dao.TagsDao
 import com.example.financehub.data.dao.TargetDao
+import com.example.financehub.data.dao.TargetRef
 import com.example.financehub.data.database.Expense
 import com.example.financehub.data.database.ExpenseTagsCrossRef
 import com.example.financehub.data.database.ExpenseWithTags
@@ -543,6 +544,13 @@ class ExpenseRepository(
             targetDao.getMissedTargetsCount(month, year),
             targetDao.getTotalTargetsCount(month, year)
         ) { missed, total -> missed to total }
+    }
+
+    fun getMonthlyTargetProgress(): Flow<List<TargetRef>> {
+        val calendar = Calendar.getInstance()
+        val month = calendar.get(Calendar.MONTH) + 1
+        val year = calendar.get(Calendar.YEAR)
+        return targetDao.getMonthylProgress(month, year)
     }
 
 

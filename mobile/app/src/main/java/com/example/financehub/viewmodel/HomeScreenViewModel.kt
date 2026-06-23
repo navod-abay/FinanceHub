@@ -4,7 +4,9 @@ package com.example.financehub.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.financehub.data.dao.TargetRef
 import com.example.financehub.data.database.TagWithAmount
+import com.example.financehub.data.database.Target
 import com.example.financehub.data.repository.ExpenseRepository
 import com.example.financehub.data.repository.SyncRepositoryResult
 import com.example.financehub.data.repository.SyncRepositoryState
@@ -41,9 +43,7 @@ class HomeScreenViewModel(
     private val _totalTargets = MutableStateFlow(0)
     val totalTargets: StateFlow<Int> = _totalTargets
 
-    val missedFraction: StateFlow<Float> = combine(_missedTargets, _totalTargets) { missed, total ->
-        if (total == 0) 0f else missed.toFloat() / total.toFloat()
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0f)
+
 
     // Sync-related state
     val syncState: StateFlow<SyncRepositoryState> = repository.getSyncState()
@@ -51,6 +51,10 @@ class HomeScreenViewModel(
     
     val syncProgress: StateFlow<SyncProgress> = repository.getSyncProgress()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SyncProgress())
+
+
+    val targetProgress: StateFlow<List<TargetRef>> = repository.getMonthlyTargetProgress()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     
     private val _syncResult = MutableStateFlow<SyncRepositoryResult?>(null)
 

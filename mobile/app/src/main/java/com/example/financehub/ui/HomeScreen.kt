@@ -1,5 +1,6 @@
 package com.example.financehub.ui
 
+import android.widget.Space
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +26,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -34,11 +36,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.navigation.NavController
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.financehub.R
 import com.example.financehub.data.repository.SyncRepositoryState
 import com.example.financehub.ui.components.NavBar
@@ -73,11 +77,40 @@ fun HomeScreen(navController: NavController, viewModel: HomeScreenViewModel) {
             Spacer(Modifier.height(16.dp))
             SnapshotGrid(navController, viewModel)
             Spacer(Modifier.height(16.dp))
-            RecentTransactions(navController)
+            TargetProgress(viewModel)
+            Spacer(Modifier.height(12.dp))
+            RecentTransactions(navController, viewModel)
         }
     }
 }
 
+
+@Composable
+fun TargetProgress(viewModel: HomeScreenViewModel) {
+    val targetSummary = viewModel.targetProgress.collectAsState()
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text("Target Progression", style = MaterialTheme.typography.titleSmall)
+        Spacer(Modifier.height(16.dp))
+        targetSummary.value.forEach {target ->
+            Column() {
+                Text(target.tagName)
+                Spacer(Modifier.height(12.dp))
+                LinearProgressIndicator(
+                    progress = {
+                        if (target.spent > target.amount) {
+                            1.0f
+                        } else {
+                            target.spent.toFloat() / target.amount
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(8.dp)
+                )
+            }
+        }
+    }
+}
 @Preview(showBackground = true)
 @Composable
 fun HomeScreenPreview() {
@@ -85,7 +118,7 @@ fun HomeScreenPreview() {
 }
 
 @Composable
-fun RecentTransactions(navController: NavController) {
+fun RecentTransactions(navController: NavController, viewModel: HomeScreenViewModel) {
 
 }
 
