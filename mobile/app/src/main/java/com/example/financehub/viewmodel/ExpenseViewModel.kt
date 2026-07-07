@@ -1,6 +1,7 @@
 package com.example.financehub.viewmodel
 
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.material3.Text
 import androidx.compose.runtime.MutableState
@@ -65,7 +66,7 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
         val month = monthState.value
         val year = yearState.value
         val day = dayState.value
-        val selectedTagsVal  = selectedTags
+        val selectedTagsVal  = selectedTags.value
         val amountVal = amount.value
         // Reset form
         name.value = ""
@@ -85,6 +86,7 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
                 val year: Int =
                     if (year.isBlank()) dateTuple.third else year.toInt()
                 print("new Tags in view model: $newTags")
+                Log.d("ExpenseViewModel", selectedTagsVal.toString())
                 repository.insertExpense(
                     Expense(
                         title = nameVal,
@@ -93,7 +95,7 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
                         month = month,
                         year = year
                     ),
-                    tags = _selectedTags.value,
+                    tags = selectedTagsVal,
                     newTags = newTags
                 )
                 
@@ -125,11 +127,11 @@ class ExpenseViewModel(private val repository: ExpenseRepository) : ViewModel() 
     fun clickRecommendedTag(tag: TagRef) {
             _selectedTags.value = if (_selectedTags.value.contains(tag)) {
                 _reccommendedTags.value.filter { tag.tagID != it.tagID }
-                _selectedTags.value - tag
+                _selectedTags.value.minus(tag)
             } else {
                 _reccommendedTags.value.filter { tag.tagID != it.tagID }
                 getReccomendations(tag.tagID)
-                _selectedTags.value + tag
+                _selectedTags.value.plus(tag)
             }
 
     }

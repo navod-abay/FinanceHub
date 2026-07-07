@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.financehub.data.database.ExpenseWithTags
 import com.example.financehub.data.database.Tags
+import com.example.financehub.data.database.models.TagRef
 import com.example.financehub.data.repository.ExpenseRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -11,6 +12,8 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import com.example.financehub.data.repository.TimeSeriesPoint
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 
 /**
  * Data class representing a point in time with an expense amount
@@ -37,8 +40,8 @@ class AnalyticsViewModel  constructor(
     val selectedTags: StateFlow<List<String>> = _selectedTags
 
     // All available tags
-    private val _availableTags = MutableStateFlow<List<Tags>>(emptyList())
-    val availableTags: StateFlow<List<Tags>> = _availableTags
+    private val _availableTags = MutableStateFlow<List<TagRef>>(emptyList())
+    val availableTags: StateFlow<List<TagRef>> = _availableTags
 
     // Filtered expenses
     private val _filteredExpenses = MutableStateFlow<List<ExpenseWithTags>>(emptyList())
@@ -53,6 +56,20 @@ class AnalyticsViewModel  constructor(
 
     private val _expensesByTag = MutableStateFlow<Map<String, Int>>(emptyMap())
     val expensesByTag: StateFlow<Map<String, Int>> = _expensesByTag
+
+    private var _tagSearchText = MutableStateFlow<String>("")
+    val tagSearchText = _tagSearchText.asStateFlow()
+    fun updateTagSearchText(newQuery: String) {
+        _tagSearchText.value = newQuery
+    }
+    @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
+    val matchingTags: StateFlow<List<TagRef>> = tagSearchText
+        .debounce(300) // Wait for user to stop typing
+        .flatMapLatest { query ->
+            if (query.isBlank()) _availableTags else repository.getMatchingTags(query)
+        }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
 
     // Date range presets
     enum class DateRangePreset {
@@ -87,7 +104,7 @@ class AnalyticsViewModel  constructor(
     init {
         // Load initial data
         viewModelScope.launch {
-            repository.getAllTags().collect { tags ->
+            repository.getMatchingTags("").collect { tags ->
                 _availableTags.value = tags
             }
         }
