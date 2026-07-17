@@ -191,6 +191,16 @@ private fun FilterBottomSheet(
                 }
             }, onPreset = { viewModel.selectPreset(it) }, openSingleDay = { showSingleDayPicker = true }, openRangeStart = { showRangeStartPicker = true }, openRangeEnd = { showRangeEndPicker = true })
 
+            RangeSlider(
+                value = filterParams.amountRange,
+                steps = 5,
+                onValueChange = { range -> viewModel.updateRange(range) },
+                valueRange = 0f..100f,
+                onValueChangeFinished = {
+                    // launch some business logic update with the state you hold
+                    // viewModel.updateSelectedSliderValue(sliderPosition)
+                },
+            )
             // Tag Section
             Text("Tags", style = MaterialTheme.typography.titleMedium)
             OutlinedTextField(
@@ -299,11 +309,7 @@ private fun DateSection(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionsList(navController: NavController, viewModel: TransactionsViewModel, lazyPagingItems: LazyPagingItems<ExpenseWithTags>) {
-
-
     Column {
-
-
         LazyColumn {
             items(
                 count = lazyPagingItems.itemCount,

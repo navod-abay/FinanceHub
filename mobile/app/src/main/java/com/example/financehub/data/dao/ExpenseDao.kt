@@ -70,11 +70,18 @@ AND (
         HAVING COUNT(DISTINCT tagID) = :requiredCount
     )
 )
+AND (
+    :minAmount IS NULL OR (e.amount > :minAmount)
+)
+AND (
+:maxAmount IS NULL or (e.amount < :maxAmount)
+)
 ORDER BY year DESC, month DESC, date DESC
 """)
     fun getPagedExpensesFiltered(
         startYear: Int?, startMonth: Int?, startDay: Int?,
         endYear: Int?, endMonth: Int?, endDay: Int?,
+        minAmount: Int?, maxAmount: Int?,
         requiredTagIds: List<Int>,
         requiredCount: Int
     ): PagingSource<Int, ExpenseWithTags>
@@ -128,4 +135,10 @@ ORDER BY year DESC, month DESC, date DESC
 
     @Query("DELETE FROM expenses WHERE createdAt < :cutoffTime")
     suspend fun deleteOldExpenses(cutoffTime: Long)
+
+    @Query("SELECT COUNT(*)  FROM expenses GROUP BY month, year" )
+    suspend fun getMonthCount() : Int
+
+    @Query("SELECT AVG(amount) FROM expenses GROUP BY month, year")
+    suspend fun  getTotalMonthlyAverage(): Int
 }

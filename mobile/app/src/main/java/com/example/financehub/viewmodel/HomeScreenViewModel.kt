@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.financehub.data.dao.TargetRef
 import com.example.financehub.data.database.TagWithAmount
 import com.example.financehub.data.database.Target
+import com.example.financehub.data.datastore.AnalyticsDatastore
+import com.example.financehub.data.datastore.PersistentAnalyticData
 import com.example.financehub.data.repository.ExpenseRepository
 import com.example.financehub.data.repository.SyncRepositoryResult
 import com.example.financehub.data.repository.SyncRepositoryState
@@ -24,7 +26,7 @@ import java.util.Calendar
 
 class HomeScreenViewModel(
     private val repository: ExpenseRepository,
-    private val wishlistRepository: WishlistRepository
+    private val wishlistRepository: WishlistRepository,
 ) : ViewModel() {
 
     private  val _highestTag = MutableStateFlow<TagWithAmount>(TagWithAmount("Loading...", 0))
@@ -60,9 +62,16 @@ class HomeScreenViewModel(
 
     private val _hasPendingSync = MutableStateFlow(false)
     val hasPendingSync: StateFlow<Boolean> = _hasPendingSync
+    val calendar = Calendar.getInstance()
+
+    val currentDay: Int = calendar.get(Calendar.DAY_OF_MONTH)
+    val runningAverage  : StateFlow<PersistentAnalyticData> = repository.persistentAnalyticFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = PersistentAnalyticData(0.0f, 0)
+    )
 
     init {
-        val calendar = Calendar.getInstance()
         val currentYear = calendar.get(Calendar.YEAR)
         val currentMonth = calendar.get(Calendar.MONTH)
 

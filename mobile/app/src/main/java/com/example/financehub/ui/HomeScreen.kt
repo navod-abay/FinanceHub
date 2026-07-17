@@ -47,13 +47,17 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.financehub.R
+import com.example.financehub.data.datastore.PersistentAnalyticData
 import com.example.financehub.data.repository.SyncRepositoryState
 import com.example.financehub.ui.components.NavBar
 import com.example.financehub.ui.sync.SyncStatusIndicator
 import com.example.financehub.viewmodel.HomeScreenViewModel
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 
 @Composable
 fun HomeScreen(navController: NavController, viewModel: HomeScreenViewModel) {
+    val monthlyTotal by viewModel.monthlyTotal.collectAsState()
     Scaffold (
         bottomBar = { NavBar(navController) },
     ) {
@@ -76,9 +80,9 @@ fun HomeScreen(navController: NavController, viewModel: HomeScreenViewModel) {
             // Add sync button
             SyncButton(viewModel = viewModel)
             Spacer(Modifier.height(16.dp))
-            TotalExpenditure(navController, viewModel = viewModel)
+            TotalExpenditure(navController, viewModel = viewModel, monthlyTotal)
             Spacer(Modifier.height(16.dp))
-            SnapshotGrid(navController, viewModel)
+            SnapshotGrid(navController, viewModel, monthlyTotal)
             Spacer(Modifier.height(16.dp))
             TargetProgress(viewModel)
             Spacer(Modifier.height(12.dp))
@@ -147,7 +151,7 @@ fun Greeting(navController: NavController) {
 
 
 @Composable
-fun SnapshotGrid(navController: NavController, viewModel: HomeScreenViewModel) {
+fun SnapshotGrid(navController: NavController, viewModel: HomeScreenViewModel,monthlyTotal: Int) {
     val highestTag = viewModel.highestTag.collectAsState()
     val missed by viewModel.missedTargets.collectAsState()
     val total by viewModel.totalTargets.collectAsState()
@@ -160,11 +164,18 @@ fun SnapshotGrid(navController: NavController, viewModel: HomeScreenViewModel) {
         else -> String.format("%d%% missed", ((missed.toFloat() / total.toFloat()) * 100).toInt())
     }
 
+    val runningDailyAverage : PersistentAnalyticData by viewModel.runningAverage.collectAsState()
+    val dailyAverageForCurrentMonth = monthlyTotal.toFloat() / viewModel.currentDay.toFloat()
+    val dailyAverageIncrementForMonth = (dailyAverageForCurrentMonth - runningDailyAverage.monthlyAverage) / runningDailyAverage.monthlyAverage * 100
+
     val cardData = listOf(
         Triple("Most spent tag", highestTag.value.tag, ""),
         Triple("Missed Targets", missedDisplay, missedSubtitle),
         Triple("Wishlist Value", "",
-            wishlistTotalValues.first.toString() + " - " + wishlistTotalValues.second.toString())
+            wishlistTotalValues.first.toString() + " - " + wishlistTotalValues.second.toString()),
+        Triple("Daily Average For Month",  (monthlyTotal.toFloat() / viewModel.currentDay.toFloat()).toString(),
+            "$dailyAverageIncrementForMonth% increase"
+        )
     )
 
     LazyVerticalGrid(
@@ -196,8 +207,7 @@ fun SnapshotGrid(navController: NavController, viewModel: HomeScreenViewModel) {
 }
 
 @Composable
-fun TotalExpenditure(navController: NavController, viewModel: HomeScreenViewModel) {
-    val monthlyTotal by viewModel.monthlyTotal.collectAsState()
+fun TotalExpenditure(navController: NavController, viewModel: HomeScreenViewModel, monthlyTotal: Int) {
     Box(
         modifier = Modifier
             .background(MaterialTheme.colorScheme.surface)

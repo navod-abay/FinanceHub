@@ -1,5 +1,6 @@
 package com.example.financehub.data.repository
 
+import android.content.Context
 import android.util.Log
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
@@ -20,6 +21,8 @@ import com.example.financehub.data.database.TagWithAmount
 import com.example.financehub.data.database.Tags
 import com.example.financehub.data.database.Target
 import com.example.financehub.data.database.models.TagRef
+import com.example.financehub.data.datastore.AnalyticsDatastore
+import com.example.financehub.data.datastore.PersistentAnalyticData
 import com.example.financehub.viewmodel.TargetWithTag
 import com.example.financehub.viewmodel.FilterParams
 import com.example.financehub.sync.SyncManager
@@ -53,12 +56,27 @@ class ExpenseRepository(
     private val targetDao: TargetDao,
     private val graphEdgeDAO: GraphEdgeDAO,
     private val tagRefDao: TagRefDao,
-    private val syncManager: SyncManager
+    private val syncManager: SyncManager,
+    private val datastore: AnalyticsDatastore
 ) : ExpenseRepositoryInterface{
 
     private val repositoryScope = CoroutineScope(Dispatchers.IO)
     private val _hasPendingSync = MutableStateFlow(false)
     val hasPendingSync: StateFlow<Boolean> = _hasPendingSync.asStateFlow()
+
+    val persistentAnalyticFlow : Flow<PersistentAnalyticData> = flow {
+        val currentAnalytics = datastore.analyticDataFlow.first()
+
+        if (currentAnalytics.numMonths == 0) {
+            val currentRecordedMonths =  expenseDao.getMonthCount()
+            if ( currentRecordedMonths > 0) {
+                val currentAverage = expenseDao.getTotalMonthlyAverage() / 30.0f
+                datastore.updateAnalyticData(currentAverage, currentRecordedMonths)
+            }
+
+        }
+        datastore.analyticDataFlow.collect { emit(it) }
+    }
 
     init {
         repositoryScope.launch {
@@ -97,17 +115,6 @@ class ExpenseRepository(
         addGraphEdgesForExpense(allTags)
     }
 
-    fun getPagedExpenses(): Flow<PagingData<Expense>> {
-        return Pager(
-            config = PagingConfig(
-                pageSize = 20,          // Number of items per page
-                enablePlaceholders = false,
-                prefetchDistance = 5     // Start loading when 5 items from the end
-            )
-        ) {
-            expenseDao.getPagedExpenses()
-        }.flow
-    }
 
     fun getCurrentMonthTotal(currentMonth: Int, currentYear: Int): Flow<Int> {
         return expenseDao.getTotalAmountForMonth(currentYear, currentMonth)
@@ -125,18 +132,6 @@ class ExpenseRepository(
                 )
                 total
             }
-    }
-
-    fun getPagedExpensesWithTags(): Flow<PagingData<ExpenseWithTags>> {
-        return Pager(
-            config = PagingConfig(
-                pageSize = 20,
-                enablePlaceholders = false,
-                prefetchDistance = 5
-            )
-        ) {
-            expenseDao.getPagedExpensesWithTags()
-        }.flow
     }
 
     fun getTopTagForMonth(currentMonth: Int, currentYear: Int): Flow<TagWithAmount> {
@@ -576,6 +571,8 @@ class ExpenseRepository(
         val range = params.resolveDateRange()
         val tagIds =
             if (params.requiredTagIds.isEmpty()) listOf(-1) else params.requiredTagIds.map { it }
+        val minAmount = if (params.amountRange.start.toInt()==0)  params.amountRange.start.toInt() else  null
+        val maxAmount = if (params.amountRange.endInclusive.toInt() == 10000)  params.amountRange.endInclusive.toInt() else  null
         return Pager(
             config = PagingConfig(
                 pageSize = 20,
@@ -586,6 +583,8 @@ class ExpenseRepository(
             expenseDao.getPagedExpensesFiltered(
                 range.startYear, range.startMonth, range.startDay,
                 range.endYear, range.endMonth, range.endDay,
+                minAmount = minAmount,
+                maxAmount = maxAmount,
                 tagIds,
                 params.requiredTagIds.size
             )
@@ -648,7 +647,6 @@ class ExpenseRepository(
         }
     }
 
-    // Additional sync-aware methods
     
     /**
      * Delete an expense and mark for sync
@@ -734,4 +732,6 @@ class ExpenseRepository(
                pendingExpenseTags.isNotEmpty() || 
                pendingGraphEdges.isNotEmpty()
     }
+
+
 }

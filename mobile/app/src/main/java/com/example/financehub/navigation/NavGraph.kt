@@ -7,6 +7,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.financehub.data.database.AppDatabase
+import com.example.financehub.data.datastore.AnalyticsDatastore
+import com.example.financehub.data.datastore.dataStore
 import com.example.financehub.data.repository.ExpenseRepository
 import com.example.financehub.data.repository.WishlistRepository
 import com.example.financehub.network.ApiServiceFactory
@@ -33,6 +35,7 @@ fun NavGraph(navController: NavHostController) {
     val database by lazy { AppDatabase.getDatabase(applicationContext) }
     val  apiService by lazy { ApiServiceFactory.apiService }
     val syncManager by lazy { SyncManager(database, apiService, applicationContext) }
+    val analyticsDatastore by lazy { AnalyticsDatastore(applicationContext) }
 
     val repository by lazy {
         ExpenseRepository(
@@ -42,7 +45,8 @@ fun NavGraph(navController: NavHostController) {
             database.targetDao(),
             database.graphEdgeDAO(),
             database.TagRefDao(),
-            syncManager
+            syncManager,
+            analyticsDatastore
         )
     }
 
