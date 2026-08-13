@@ -1,24 +1,30 @@
 package com.example.financehub.data.repository
 
+import com.example.financehub.data.dao.TagRefDao
 import com.example.financehub.data.dao.WishlistDao
 import com.example.financehub.data.dao.WishlistTagsDao
+import com.example.financehub.data.database.TagWithAmount
+import com.example.financehub.data.database.Tags
 import com.example.financehub.data.database.Wishlist
 import com.example.financehub.data.database.WishlistTagsCrossRef
 import com.example.financehub.data.database.WishlistWithTags
+import com.example.financehub.data.database.models.TagRef
 import com.example.financehub.sync.SyncManager
 import com.example.financehub.sync.SyncEntityType
 import com.example.financehub.sync.SyncOperation
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.util.UUID
 
 class WishlistRepository(
     private val wishlistDao: WishlistDao,
     private val wishlistTagsDao: WishlistTagsDao,
-    private val syncManager: SyncManager
+    private val syncManager: SyncManager,
+
 ) {
     val allWishlistItems: Flow<List<WishlistWithTags>> = wishlistDao.getAllWishlistItems()
 
-    suspend fun addWishlistItem(name: String, minPrice: Int, maxPrice: Int, tagIds: List<Int>) {
+    suspend fun addWishlistItem(name: String, minPrice: Int, maxPrice: Int, tagIds: List<Tags>) {
         val newItem = Wishlist(
             name = name,
             minPrice = minPrice,
@@ -31,10 +37,10 @@ class WishlistRepository(
         val wishlistId = wishlistDao.insertWishlist(newItem).toInt()
         
         // Add tags
-        tagIds.forEach { tagId ->
+        tagIds.forEach { tag ->
             val crossRef = WishlistTagsCrossRef(
                 wishlistId = wishlistId,
-                tagID = tagId,
+                tagID = tag.tagID,
                 pendingSync = true,
                 syncOperation = "CREATE",
                 updatedAt = System.currentTimeMillis(),
@@ -46,7 +52,7 @@ class WishlistRepository(
         // Trigger sync? Handled by SyncManager periodic or manual.
     }
 
-    suspend fun updateWishlistItem(item: Wishlist, tagIds: List<Int>) {
+    suspend fun updateWishlistItem(item: Wishlist, tagIds: List<Tags>) {
         val updatedItem = item.copy(
             pendingSync = true,
             syncOperation = "UPDATE",
@@ -57,14 +63,14 @@ class WishlistRepository(
         // Update tags - Diffing Strategy
         val currentTags = wishlistTagsDao.getWishlistTagsByWishlistId(item.id)
         val currentTagIds = currentTags.map { it.tagID }.toSet()
-        val newTagIds = tagIds.toSet()
-        
+        val newTagIds = tagIds.map { it.tagID }.toSet()
+
         // Tags to add
         val toAdd = newTagIds - currentTagIds
-        toAdd.forEach { tagId ->
+        toAdd.forEach { tag ->
             val crossRef = WishlistTagsCrossRef(
                 wishlistId = item.id,
-                tagID = tagId,
+                tagID = tag,
                 pendingSync = true,
                 syncOperation = "CREATE",
                 updatedAt = System.currentTimeMillis(),
@@ -88,6 +94,20 @@ class WishlistRepository(
             }
         }
     }
+
+    fun getWishlistValues(): Flow<Pair<Int, Int>> {
+        return wishlistDao.getTotalWishlistValues().map { it ->
+            Pair(
+                it.minTotal ?: 0,
+                it.maxTotal ?: 0
+            )
+    }
+    }
+
+    fun getMatchingTags(query: String): Flow<List<Tags>> {
+        return wishlistTagsDao.getMatchingTags(query)
+    }
+
 
     suspend fun deleteWishlistItem(item: Wishlist) {
         if (item.serverId != null) {

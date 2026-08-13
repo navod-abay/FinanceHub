@@ -1,5 +1,9 @@
 package com.example.financehub.ui
 
+import android.os.Build
+import android.util.Log
+import androidx.annotation.RequiresApi
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,7 +19,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -23,9 +27,9 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import com.example.financehub.data.database.models.TagRef
 
 
+@RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Composable
 fun AddExpense(navController: NavController, viewModel: ExpenseViewModel) {
     var selectedTab by remember { mutableStateOf(0) }
@@ -58,19 +62,20 @@ fun AddExpense(navController: NavController, viewModel: ExpenseViewModel) {
 
 
 
+@RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Composable
 fun ExpenseForm(
     viewModel: ExpenseViewModel,
     navController: NavController
 ) {
-    var selectedTags by remember { mutableStateOf(setOf<TagRef>()) }
     var showTagDialog by remember { mutableStateOf(false) }
-    var newTagText by remember { mutableStateOf("") }
+    val newTagText by viewModel.newTagText.collectAsState()
 
-    val newTags  = remember { mutableStateListOf<String>() }
+    val newTags  = viewModel.newTags
 
 
     val reccommendedTags by viewModel.reccommendedTags.collectAsState()
+    val selectedTags by viewModel.selectedTags.collectAsState()
 
     // Predefined tags (you can modify this list)
     val suggestedTags by viewModel.matchingTags.collectAsState()
@@ -202,7 +207,7 @@ fun ExpenseForm(
                     trailingIcon = {
                         IconButton(
                             onClick = {
-                                selectedTags = selectedTags - tag
+                                viewModel.deselectTag(tag)
                             }
                         ) {
                             Icon(
@@ -232,27 +237,61 @@ fun ExpenseForm(
                     }
                 )
             }
-            item {
-                AssistChip(
-                    onClick = { showTagDialog = true },
-                    label = { Text("Add Tag") },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Default.Add,
-                            contentDescription = "Add tag"
-                        )
-                    }
+            items(suggestedTags) { tag ->
+                InputChip(
+                    selected = false,
+                    onClick = { viewModel.clickSuggestedTag(tag)},
+                    label = { Text(tag.tag) },
                 )
             }
+            items(reccommendedTags) { tag ->
+                InputChip(
+                    selected = false,
+                    onClick = { viewModel.clickRecommendedTag(tag)},
+                    label = { Text(tag.tag) },
+                )
+            }
+
+        }
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Custom tag input
+            OutlinedTextField(
+                value = newTagText,
+                onValueChange = {
+                    viewModel.updateNewTagText(it)
+                },
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Sentences, // Capitalize first letter
+                    imeAction = ImeAction.Done // Show "Done" on keyboard
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        focusManager.clearFocus()
+                        showTagDialog = false
+                    }
+                ),
+                label = { Text("New Tag") },
+                modifier = Modifier.fillMaxWidth(),
+                trailingIcon = {
+                    if(newTagText.isNotEmpty()) {
+                        IconButton(onClick = {viewModel.onNewTagTextAddition()}) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = "Add New Tag"
+                            )
+                        }
+                    }
+                }
+            )
+
         }
 
         // Submit button
         Button(
             onClick = {
-                        viewModel.addExpense(
-                            tags = selectedTags,
-                            newTags = newTags
-                        )
+                        viewModel.addExpense()
                         navController.navigate("home")
             },
             modifier = Modifier.fillMaxWidth()
@@ -261,118 +300,9 @@ fun ExpenseForm(
         }
     }
 
-    // Tag selection dialog
-    if (showTagDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                showTagDialog = false
-                newTagText = ""
-            },
-            title = { Text("Add Tag") },
-            text = {
-                val lastNameFocusRequester = remember { FocusRequester() }
-                val focusManager = LocalFocusManager.current
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Custom tag input
-                    OutlinedTextField(
-                        value = newTagText,
-                        onValueChange = {
-                            newTagText = it
-                            viewModel.updateQuery(it)
-                                        },
-                        keyboardOptions = KeyboardOptions(
-                            capitalization = KeyboardCapitalization.Sentences, // Capitalize first letter
-                            imeAction = ImeAction.Done // Show "Done" on keyboard
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onDone = {
-                                focusManager.clearFocus()
-                                showTagDialog = false
-                            }
-                        ),
-                        label = { Text("New Tag") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
 
-                    // Predefined tags
-                    Text(
-                        text = "Suggested Tags",
-                        style = MaterialTheme.typography.titleSmall
-                    )
 
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        suggestedTags.forEach { tag ->
-                            FilterChip(
 
-                                selected = tag in selectedTags,
-                                onClick = {
-                                    newTagText = ""
-                                    selectedTags = if (selectedTags.contains(tag)) {
-                                        selectedTags - tag
-                                    } else {
-                                        viewModel.getReccomendations(tag.tagID)
-                                        selectedTags + tag
-                                    }
-                                },
-                                label = { Text(tag.tag) }
-                            )
-                        }
-                        reccommendedTags.forEach { tag ->
-                            FilterChip(
-                                selected = false,
-                                onClick = {
-                                    newTagText = ""
-                                    // When clicking on a reccommended tag, add it to selected tags
-                                    if (tag !in selectedTags) {
-                                        selectedTags = selectedTags +  tag
-                                        reccommendedTags.filter { it.tagID != tag.tagID}.forEach {
-                                            viewModel.removeRecommendation(it)
-                                        }
-                                    }
-                                },
-                                label = { Text(tag.tag) }
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        println("Add Button Pressed with tag: $newTagText")
-                        if (newTagText.isNotBlank()) {
-                            newTags.add(newTagText)
-                            newTagText = ""
-                            println("New tags: $newTags")
-                        }
-                        showTagDialog = false
-                    }
-                ) {
-                    if(newTagText.isNotBlank()) {
-                        Text("Add")
-                    } else {
-                        Text("Done")
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showTagDialog = false
-                        newTagText = ""
-                    }
-                ) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
 }
 
 

@@ -70,11 +70,18 @@ AND (
         HAVING COUNT(DISTINCT tagID) = :requiredCount
     )
 )
+AND (
+    :minAmount IS NULL OR (e.amount > :minAmount)
+)
+AND (
+:maxAmount IS NULL or (e.amount < :maxAmount)
+)
 ORDER BY year DESC, month DESC, date DESC
 """)
     fun getPagedExpensesFiltered(
         startYear: Int?, startMonth: Int?, startDay: Int?,
         endYear: Int?, endMonth: Int?, endDay: Int?,
+        minAmount: Int?, maxAmount: Int?,
         requiredTagIds: List<Int>,
         requiredCount: Int
     ): PagingSource<Int, ExpenseWithTags>
@@ -128,4 +135,34 @@ ORDER BY year DESC, month DESC, date DESC
 
     @Query("DELETE FROM expenses WHERE createdAt < :cutoffTime")
     suspend fun deleteOldExpenses(cutoffTime: Long)
+
+    @Query("""
+        WITH   distinctMonths AS (
+        SELECT DISTINCT month, year FROM expenses
+        ) SELECT COUNT(*) FROM distinctMonths
+    """ )
+    suspend fun getMonthCount() : Int
+
+    @Query("""
+        WITH MonthlyTotals AS (
+    SELECT year, month, SUM(amount) AS monthly_total
+    FROM expenses
+    GROUP BY year, month
+)
+SELECT AVG(monthly_total) AS average_monthly_spend
+FROM MonthlyTotals;
+    """)
+    suspend fun  getTotalMonthlyAverage(): Float
+
+    @Query("""
+        WITH orderedExpenses AS (
+            SELECT *, PERCENT_RANK() OVER(ORDER BY amount) as percentile_bucket FROM expenses WHERE month = :currentMonth AND year = :currentYear
+        ), Q3 AS (
+        SELECT MAX(amount) as Q3 FROM orderedExpenses WHERE percentile_bucket < 0.75
+        ), Q1 AS (
+        SELECT MAX(amount) as Q1 FROM orderedExpenses WHERE percentile_bucket < 0.25
+        )
+        SELECT SUM(amount) FROM orderedExpenses WHERE amount < (SELECT Q3 + 2.5 * (Q3 - Q1) FROM Q3, Q1) 
+    """)
+    fun getOperationalExpensesForTheMonth(currentMonth: Int, currentYear: Int): Flow<Int>
 }

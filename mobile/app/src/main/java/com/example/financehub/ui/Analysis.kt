@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -12,6 +13,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -31,7 +34,6 @@ fun ExpenseAnalyticsScreen(
     val startDate by viewModel.startDate.collectAsState()
     val endDate by viewModel.endDate.collectAsState()
     val selectedTags by viewModel.selectedTags.collectAsState()
-    val availableTags by viewModel.availableTags.collectAsState()
     val filteredExpenses by viewModel.filteredExpenses.collectAsState()
     val totalAmount by viewModel.totalAmount.collectAsState()
     val monthlyAverage by viewModel.monthlyAverage.collectAsState()
@@ -203,12 +205,12 @@ fun ExpenseAnalyticsScreen(
     // Tag Filter Dialog
     if (showTagFilterDialog) {
         TagFilterDialog(
-            availableTags = availableTags.map { it.tag },
             selectedTags = selectedTags,
             onTagToggle = { viewModel.toggleTag(it) },
             onClearAll = { viewModel.clearSelectedTags() },
             onSelectAll = { viewModel.selectAllTags() },
-            onDismiss = { showTagFilterDialog = false }
+            onDismiss = { showTagFilterDialog = false },
+            viewModel = viewModel
         )
     }
 }
@@ -450,17 +452,19 @@ fun PresetOption(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TagFilterDialog(
-    availableTags: List<String>,
     selectedTags: List<String>,
     onTagToggle: (String) -> Unit,
     onClearAll: () -> Unit,
     onSelectAll: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    viewModel: AnalyticsViewModel
 ) {
+    val matchingTags by viewModel.matchingTags.collectAsState()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Filter by Tags") },
         text = {
+            val tagSearchText by viewModel.tagSearchText.collectAsState()
             Column {
                 Row(
                     modifier = Modifier
@@ -475,28 +479,41 @@ fun TagFilterDialog(
                         Text("Select All")
                     }
                 }
-
-                if (availableTags.isEmpty()) {
+                OutlinedTextField(
+                    value = tagSearchText,
+                    onValueChange = { viewModel.updateTagSearchText(it) },
+                    label = { Text("Search Tag") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.Next
+                    ),
+                    singleLine = true
+                )
+                if (matchingTags.isEmpty()) {
                     Text("No tags available")
                 } else {
-                    availableTags.sorted().forEach { tag ->
-                        Row(
+                    LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                        items(matchingTags.toList()) {
+                            tag ->                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Checkbox(
-                                checked = selectedTags.contains(tag),
-                                onCheckedChange = { onTagToggle(tag) }
+                                checked = selectedTags.contains(tag.tag),
+                                onCheckedChange = { onTagToggle(tag.tag) }
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = tag,
-                                modifier = Modifier.clickable { onTagToggle(tag) }
+                                text = tag.tag,
+                                modifier = Modifier.clickable { onTagToggle(tag.tag) }
                             )
                         }
+                        }
                     }
+
                 }
             }
         },

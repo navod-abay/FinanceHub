@@ -3,6 +3,7 @@ package com.example.financehub.data.dao
 import androidx.room.*
 import com.example.financehub.data.database.WishlistTagsCrossRef
 import com.example.financehub.data.database.Tags
+import com.example.financehub.data.database.models.TagRef
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -41,4 +42,7 @@ interface WishlistTagsDao {
     
     @Query("SELECT * FROM wishlist_tags WHERE wishlistId = :wishlistId")
     suspend fun getWishlistTagsByWishlistId(wishlistId: Int): List<WishlistTagsCrossRef>
+
+    @Query("SELECT * FROM tags WHERE tag LIKE :query || '%'")
+    fun getMatchingTags(query: String): Flow<List<Tags>>
 }

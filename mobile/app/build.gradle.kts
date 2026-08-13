@@ -107,6 +107,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.compose.runtime.livedata.v154)
 
+    implementation("androidx.datastore:datastore-preferences:1.2.1")
+
+
     // WorkManager
     implementation(libs.androidx.work.runtime.ktx)
 }

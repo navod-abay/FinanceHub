@@ -1,5 +1,6 @@
 package com.example.financehub.ui
 
+import android.widget.Space
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -11,13 +12,16 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Button
@@ -25,6 +29,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -34,19 +39,26 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.navigation.NavController
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.financehub.R
+import com.example.financehub.data.datastore.PersistentAnalyticData
+import com.example.financehub.data.repository.HomeScreenAnalytics
 import com.example.financehub.data.repository.SyncRepositoryState
 import com.example.financehub.ui.components.NavBar
 import com.example.financehub.ui.sync.SyncStatusIndicator
 import com.example.financehub.viewmodel.HomeScreenViewModel
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 
 @Composable
 fun HomeScreen(navController: NavController, viewModel: HomeScreenViewModel) {
+    val homeScreenAnalytics : HomeScreenAnalytics by viewModel.runningAverage.collectAsState() // state hoisting collecting at the top level component
     Scaffold (
         bottomBar = { NavBar(navController) },
     ) {
@@ -54,7 +66,12 @@ fun HomeScreen(navController: NavController, viewModel: HomeScreenViewModel) {
         Column (
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding.calculateTopPadding()),
+                .padding(
+                    top=innerPadding.calculateTopPadding(),
+                    bottom = innerPadding.calculateBottomPadding(),
+                    start = 16.dp,
+                    end = 16.dp
+                ).verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(16.dp))
@@ -69,15 +86,44 @@ fun HomeScreen(navController: NavController, viewModel: HomeScreenViewModel) {
             // Add sync button
             SyncButton(viewModel = viewModel)
             Spacer(Modifier.height(16.dp))
-            TotalExpenditure(navController, viewModel = viewModel)
+            TotalExpenditure(navController, viewModel = viewModel, homeScreenAnalytics.allExpensesCurrentMonthTotal)
             Spacer(Modifier.height(16.dp))
-            SnapshotGrid(navController, viewModel)
+            SnapshotGrid(navController, viewModel, homeScreenAnalytics)
             Spacer(Modifier.height(16.dp))
-            RecentTransactions(navController)
+            TargetProgress(viewModel)
+            Spacer(Modifier.height(12.dp))
+            RecentTransactions(navController, viewModel)
         }
     }
 }
 
+
+@Composable
+fun TargetProgress(viewModel: HomeScreenViewModel) {
+    val targetSummary = viewModel.targetProgress.collectAsState()
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text("Target Progression", style = MaterialTheme.typography.titleSmall)
+        Spacer(Modifier.height(16.dp))
+        targetSummary.value.forEach {target ->
+            Column() {
+                Text(target.tagName)
+                Spacer(Modifier.height(12.dp))
+                LinearProgressIndicator(
+                    progress = {
+                        if (target.spent > target.amount) {
+                            1.0f
+                        } else {
+                            target.spent.toFloat() / target.amount
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(8.dp)
+                )
+            }
+        }
+    }
+}
 @Preview(showBackground = true)
 @Composable
 fun HomeScreenPreview() {
@@ -85,7 +131,7 @@ fun HomeScreenPreview() {
 }
 
 @Composable
-fun RecentTransactions(navController: NavController) {
+fun RecentTransactions(navController: NavController, viewModel: HomeScreenViewModel) {
 
 }
 
@@ -111,10 +157,11 @@ fun Greeting(navController: NavController) {
 
 
 @Composable
-fun SnapshotGrid(navController: NavController, viewModel: HomeScreenViewModel) {
+fun SnapshotGrid(navController: NavController, viewModel: HomeScreenViewModel,analytics: HomeScreenAnalytics) {
     val highestTag = viewModel.highestTag.collectAsState()
     val missed by viewModel.missedTargets.collectAsState()
     val total by viewModel.totalTargets.collectAsState()
+    val wishlistTotalValues by viewModel.wishlistValue.collectAsState()
 
     val missedDisplay = "$missed / $total"
     val missedSubtitle = when {
@@ -123,17 +170,35 @@ fun SnapshotGrid(navController: NavController, viewModel: HomeScreenViewModel) {
         else -> String.format("%d%% missed", ((missed.toFloat() / total.toFloat()) * 100).toInt())
     }
 
+
     val cardData = listOf(
         Triple("Most spent tag", highestTag.value.tag, ""),
-        Triple("Missed Targets", missedDisplay, missedSubtitle)
+        Triple("Daily Average For Month",  analytics.allExpensesCurrentMonthAverage.toString(),
+            "${analytics.allExpenseAverageIncrement}% increase"
+        ),
+        Triple(
+            "Operational Expenses",
+            analytics.operationalExpensesCurrentMonthTotal.toString(),
+            "Operational Expense Daily Average: ${analytics.operationalExpensesCurrentMonthAverage}"
+        ),
+        Triple (
+            "Operational Expenses Increase",
+            analytics.operationalExpensesAverageIncrement.toString(),
+            "Operational Expense All Time Average: ${analytics.operationalExpensesCurrentMonthAverage}"
+        ),
+        Triple("Missed Targets", missedDisplay, missedSubtitle),
+        Triple("Wishlist Value", "",
+            wishlistTotalValues.first.toString() + " - " + wishlistTotalValues.second.toString()),
+
     )
 
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().heightIn(max=450.dp),
         contentPadding = PaddingValues(horizontal = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        userScrollEnabled=false
     ) {
         items(cardData) { (title, primary, subtitle) ->
             Card(
@@ -156,8 +221,7 @@ fun SnapshotGrid(navController: NavController, viewModel: HomeScreenViewModel) {
 }
 
 @Composable
-fun TotalExpenditure(navController: NavController, viewModel: HomeScreenViewModel) {
-    val monthlyTotal by viewModel.monthlyTotal.collectAsState()
+fun TotalExpenditure(navController: NavController, viewModel: HomeScreenViewModel, monthlyTotal: Int) {
     Box(
         modifier = Modifier
             .background(MaterialTheme.colorScheme.surface)

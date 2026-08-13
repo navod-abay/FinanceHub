@@ -1,5 +1,6 @@
 package com.example.financehub.viewmodel
 
+import androidx.compose.ui.graphics.vector.PathNode
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.cachedIn
@@ -78,7 +79,13 @@ class TransactionsViewModel(private val repository: ExpenseRepository) : ViewMod
         tagQuery.value = query
     }
 
-
+    fun updateRange(range: ClosedFloatingPointRange<Float> ) {
+        val cur = _filterParams.value
+        _filterParams.value = cur.copy(
+            amountRange = range,
+            version = cur.version + 1
+        )
+    }
 
     fun toggleTagId(tagId: Int) {
         val cur = _filterParams.value

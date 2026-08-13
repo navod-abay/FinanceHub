@@ -11,6 +11,7 @@ data class FilterParams(
     val singleDay: Triple<Int, Int, Int>? = null, // day, month, year
     val rangeStart: Triple<Int, Int, Int>? = null,
     val rangeEnd: Triple<Int, Int, Int>? = null,
+    val amountRange: ClosedFloatingPointRange<Float> = 0f..10000f,
     val preset: DatePreset? = null,
     val requiredTagIds: Set<Int> = emptySet(),
     val removedTagIds: Set<Int> = emptySet(), // future use

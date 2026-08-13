@@ -72,7 +72,7 @@ fun TargetForm(viewModel: ExpenseViewModel, navController: NavController?) {
                 value = tagQuery,
                 onValueChange = {
                     tagQuery = it
-                    viewModel.updateQuery(it)
+                    viewModel.updateNewTagText(it)
                     expanded = true
                 },
                 label = { Text("Type or select tag") },

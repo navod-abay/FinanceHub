@@ -5,6 +5,8 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.example.financehub.data.database.Target
+import com.example.financehub.data.database.models.TagRef
+import com.example.financehub.viewmodel.TargetWithTag
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -105,4 +107,21 @@ interface TargetDao {
 
     @Query("DELETE FROM targets WHERE createdAt < :cutoffTime")
     suspend fun deleteOldTargets(cutoffTime: Long)
+
+
+    @Query("""SELECT year, month , tags.tagID, tags.tag as tagName, amount, spent  FROM targets 
+        INNER JOIN tags ON targets.tagID = tags.tagID  
+    WHERE month= :month AND year= :year 
+    ORDER BY amount LIMIT 3""")
+    fun getMonthylProgress(month: Int, year: Int): Flow<List<TargetRef>>
 }
+
+// Data class without all the sync data
+data class TargetRef(
+    val year: Int,
+    val month: Int,
+    val tagID: Int,
+    val tagName: String,
+    val amount: Int,
+    val spent: Int
+)
