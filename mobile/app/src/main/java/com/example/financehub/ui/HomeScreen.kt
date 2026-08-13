@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.financehub.R
 import com.example.financehub.data.datastore.PersistentAnalyticData
+import com.example.financehub.data.repository.HomeScreenAnalytics
 import com.example.financehub.data.repository.SyncRepositoryState
 import com.example.financehub.ui.components.NavBar
 import com.example.financehub.ui.sync.SyncStatusIndicator
@@ -57,7 +58,7 @@ import kotlinx.coroutines.flow.collect
 
 @Composable
 fun HomeScreen(navController: NavController, viewModel: HomeScreenViewModel) {
-    val monthlyTotal by viewModel.monthlyTotal.collectAsState()
+    val homeScreenAnalytics : HomeScreenAnalytics by viewModel.runningAverage.collectAsState() // state hoisting collecting at the top level component
     Scaffold (
         bottomBar = { NavBar(navController) },
     ) {
@@ -65,7 +66,12 @@ fun HomeScreen(navController: NavController, viewModel: HomeScreenViewModel) {
         Column (
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding.calculateTopPadding()).verticalScroll(rememberScrollState()),
+                .padding(
+                    top=innerPadding.calculateTopPadding(),
+                    bottom = innerPadding.calculateBottomPadding(),
+                    start = 16.dp,
+                    end = 16.dp
+                ).verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(16.dp))
@@ -80,9 +86,9 @@ fun HomeScreen(navController: NavController, viewModel: HomeScreenViewModel) {
             // Add sync button
             SyncButton(viewModel = viewModel)
             Spacer(Modifier.height(16.dp))
-            TotalExpenditure(navController, viewModel = viewModel, monthlyTotal)
+            TotalExpenditure(navController, viewModel = viewModel, homeScreenAnalytics.allExpensesCurrentMonthTotal)
             Spacer(Modifier.height(16.dp))
-            SnapshotGrid(navController, viewModel, monthlyTotal)
+            SnapshotGrid(navController, viewModel, homeScreenAnalytics)
             Spacer(Modifier.height(16.dp))
             TargetProgress(viewModel)
             Spacer(Modifier.height(12.dp))
@@ -151,7 +157,7 @@ fun Greeting(navController: NavController) {
 
 
 @Composable
-fun SnapshotGrid(navController: NavController, viewModel: HomeScreenViewModel,monthlyTotal: Int) {
+fun SnapshotGrid(navController: NavController, viewModel: HomeScreenViewModel,analytics: HomeScreenAnalytics) {
     val highestTag = viewModel.highestTag.collectAsState()
     val missed by viewModel.missedTargets.collectAsState()
     val total by viewModel.totalTargets.collectAsState()
@@ -164,23 +170,31 @@ fun SnapshotGrid(navController: NavController, viewModel: HomeScreenViewModel,mo
         else -> String.format("%d%% missed", ((missed.toFloat() / total.toFloat()) * 100).toInt())
     }
 
-    val runningDailyAverage : PersistentAnalyticData by viewModel.runningAverage.collectAsState()
-    val dailyAverageForCurrentMonth = monthlyTotal.toFloat() / viewModel.currentDay.toFloat()
-    val dailyAverageIncrementForMonth = (dailyAverageForCurrentMonth - runningDailyAverage.monthlyAverage) / runningDailyAverage.monthlyAverage * 100
 
     val cardData = listOf(
         Triple("Most spent tag", highestTag.value.tag, ""),
+        Triple("Daily Average For Month",  analytics.allExpensesCurrentMonthAverage.toString(),
+            "${analytics.allExpenseAverageIncrement}% increase"
+        ),
+        Triple(
+            "Operational Expenses",
+            analytics.operationalExpensesCurrentMonthTotal.toString(),
+            "Operational Expense Daily Average: ${analytics.operationalExpensesCurrentMonthAverage}"
+        ),
+        Triple (
+            "Operational Expenses Increase",
+            analytics.operationalExpensesAverageIncrement.toString(),
+            "Operational Expense All Time Average: ${analytics.operationalExpensesCurrentMonthAverage}"
+        ),
         Triple("Missed Targets", missedDisplay, missedSubtitle),
         Triple("Wishlist Value", "",
             wishlistTotalValues.first.toString() + " - " + wishlistTotalValues.second.toString()),
-        Triple("Daily Average For Month",  (monthlyTotal.toFloat() / viewModel.currentDay.toFloat()).toString(),
-            "$dailyAverageIncrementForMonth% increase"
-        )
+
     )
 
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
-        modifier = Modifier.fillMaxWidth().heightIn(max=300.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(max=450.dp),
         contentPadding = PaddingValues(horizontal = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),

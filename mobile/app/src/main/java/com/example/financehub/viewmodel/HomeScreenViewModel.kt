@@ -10,6 +10,7 @@ import com.example.financehub.data.database.Target
 import com.example.financehub.data.datastore.AnalyticsDatastore
 import com.example.financehub.data.datastore.PersistentAnalyticData
 import com.example.financehub.data.repository.ExpenseRepository
+import com.example.financehub.data.repository.HomeScreenAnalytics
 import com.example.financehub.data.repository.SyncRepositoryResult
 import com.example.financehub.data.repository.SyncRepositoryState
 import com.example.financehub.data.repository.WishlistRepository
@@ -46,6 +47,15 @@ class HomeScreenViewModel(
     val totalTargets: StateFlow<Int> = _totalTargets
 
 
+    private val _operationalExpenses = MutableStateFlow<Int>(0)
+    val operationalExpenses: StateFlow<Int> = _operationalExpenses
+
+    private val _operationalExpensesAvg = MutableStateFlow<Int>(0)
+    val operationalExpensesAvgFTM: StateFlow<Int> = _operationalExpensesAvg
+
+    private val _operationalExpensesAvgIncrease = MutableStateFlow<Int>(0)
+    val operationalExpensesAvgIncFTM: StateFlow<Int> = _operationalExpensesAvgIncrease
+
 
     // Sync-related state
     val syncState: StateFlow<SyncRepositoryState> = repository.getSyncState()
@@ -65,10 +75,10 @@ class HomeScreenViewModel(
     val calendar = Calendar.getInstance()
 
     val currentDay: Int = calendar.get(Calendar.DAY_OF_MONTH)
-    val runningAverage  : StateFlow<PersistentAnalyticData> = repository.persistentAnalyticFlow.stateIn(
+    val runningAverage  : StateFlow<HomeScreenAnalytics> = repository.persistentAnalyticFlow.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = PersistentAnalyticData(0.0f, 0)
+        initialValue = HomeScreenAnalytics(0,0.0f,0.0f,0.0f,0,0.0f,0.0f,0.0f)
     )
 
     init {
@@ -78,7 +88,7 @@ class HomeScreenViewModel(
         viewModelScope.launch {
             combine(
                 repository.getCurrentMonthTotal(currentMonth + 1, currentYear),
-                repository.getTopTagForMonth(currentMonth, currentYear),
+                repository.getTopTagForMonth(currentMonth + 1, currentYear),
             ) { total, topTag ->
                 Pair(total, topTag)
             }.map { (total, topTag) ->
@@ -96,6 +106,12 @@ class HomeScreenViewModel(
         viewModelScope.launch {
             wishlistRepository.getWishlistValues().collect { values ->
                 _wishlistValue.value = values
+            }
+        }
+
+        viewModelScope.launch {
+            repository.getOperationalExpensesForTheMonth(currentMonth +1, currentYear).collect{ value ->
+                _operationalExpenses.value = value
             }
         }
         

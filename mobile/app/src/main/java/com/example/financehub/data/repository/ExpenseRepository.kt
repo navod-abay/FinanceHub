@@ -2,6 +2,7 @@ package com.example.financehub.data.repository
 
 import android.content.Context
 import android.util.Log
+import androidx.compose.runtime.currentRecomposeScope
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
@@ -30,6 +31,7 @@ import com.example.financehub.sync.SyncEntityType
 import com.example.financehub.sync.SyncOperation
 import com.example.financehub.sync.SyncResult
 import com.example.financehub.sync.ConnectivityState
+import com.example.financehub.sync.SyncState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -49,6 +51,18 @@ data class TimeSeriesPoint(
     val amount: Int
 )
 
+data class HomeScreenAnalytics (
+    val allExpensesCurrentMonthTotal: Int,
+    val allExpensesCurrentMonthAverage: Float,
+    val allExpensesAllMonthAverage: Float,
+    val allExpenseAverageIncrement: Float,
+
+    val operationalExpensesCurrentMonthTotal: Int,
+    val operationalExpensesCurrentMonthAverage: Float,
+    val operationalExpensesAllMonthAverage: Float,
+    val operationalExpensesAverageIncrement: Float,
+    )
+
 class ExpenseRepository(
     private val expenseDao: ExpenseDao,
     private val tagDao: TagsDao,
@@ -63,19 +77,37 @@ class ExpenseRepository(
     private val repositoryScope = CoroutineScope(Dispatchers.IO)
     private val _hasPendingSync = MutableStateFlow(false)
     val hasPendingSync: StateFlow<Boolean> = _hasPendingSync.asStateFlow()
+    val calendar = Calendar.getInstance()
+    val currentMonth = calendar.get(Calendar.MONTH) + 1 // Calendar.MONTH is 0-based
+    val currentYear = calendar.get(Calendar.YEAR)
+    val currentDay = calendar.get(Calendar.DAY_OF_MONTH)
+    val  persistentAnalyticFlow : Flow<HomeScreenAnalytics> = combine(
+        datastore.analyticDataFlow,
+        expenseDao.getOperationalExpensesForTheMonth(currentMonth, currentYear),
+        expenseDao.getTotalAmountForMonth(currentYear, currentMonth)
 
-    val persistentAnalyticFlow : Flow<PersistentAnalyticData> = flow {
-        val currentAnalytics = datastore.analyticDataFlow.first()
+    ) { currentAnalytics, operationalExpenseCurrentMonth, totalExpenseCurrentMonth ->
 
         if (currentAnalytics.numMonths == 0) {
             val currentRecordedMonths =  expenseDao.getMonthCount()
             if ( currentRecordedMonths > 0) {
-                val currentAverage = expenseDao.getTotalMonthlyAverage() / 30.0f
-                datastore.updateAnalyticData(currentAverage, currentRecordedMonths)
+                val currentAverage = expenseDao.getTotalMonthlyAverage()
+                val dailyOEAverage = expenseDao.getOperationalExpensesForTheMonth(currentMonth, currentYear).first() / 30.0f
+                datastore.updateAnalyticData(currentAverage, currentRecordedMonths, dailyOEAverage)
             }
-
         }
-        datastore.analyticDataFlow.collect { emit(it) }
+        val totalExpenses = totalExpenseCurrentMonth?:0
+        HomeScreenAnalytics(
+            allExpensesCurrentMonthTotal = totalExpenses,
+            allExpensesCurrentMonthAverage = totalExpenses.toFloat() / currentDay,
+            allExpensesAllMonthAverage = currentAnalytics.monthlyAverageAllTime,
+            allExpenseAverageIncrement = (totalExpenses- currentAnalytics.monthlyAverageAllTime) / currentAnalytics.monthlyAverageAllTime,
+
+            operationalExpensesCurrentMonthTotal = operationalExpenseCurrentMonth,
+            operationalExpensesCurrentMonthAverage = operationalExpenseCurrentMonth.toFloat() / currentDay,
+            operationalExpensesAllMonthAverage = currentAnalytics.operationalExpenseMonthlyAvgAllTime,
+            operationalExpensesAverageIncrement = (operationalExpenseCurrentMonth - currentAnalytics.operationalExpenseMonthlyAvgAllTime) / currentAnalytics.operationalExpenseMonthlyAvgAllTime
+        )
     }
 
     init {
@@ -119,23 +151,12 @@ class ExpenseRepository(
     fun getCurrentMonthTotal(currentMonth: Int, currentYear: Int): Flow<Int> {
         return expenseDao.getTotalAmountForMonth(currentYear, currentMonth)
             .map { total ->
-                if (total == null) {
-                    Log.d("ExpenseRepository", "Total is null")
-                    0
-                } else {
-                    total
-                }
-            }.map { total ->
-                Log.d(
-                    "ExpenseRepository",
-                    "Getting total for month: $currentMonth, year: $currentYear, total: $total"
-                )
-                total
+                total ?: 0
             }
     }
 
     fun getTopTagForMonth(currentMonth: Int, currentYear: Int): Flow<TagWithAmount> {
-        return tagDao.getTopTagForMonth(currentMonth + 1, currentYear).map {
+        return tagDao.getTopTagForMonth(currentMonth , currentYear).map {
             Log.d("ExpenseRepository", "Top tag for month: $currentMonth, year: $currentYear is ${it?.tag} with amount ${it?.monthlyAmount}")
             it ?: TagWithAmount("No tag", 0)
         }
@@ -689,9 +710,9 @@ class ExpenseRepository(
     override fun getSyncState(): Flow<SyncRepositoryState> {
         return syncManager.syncState.map { syncState ->
             when (syncState) {
-                com.example.financehub.sync.SyncState.IDLE -> SyncRepositoryState.IDLE
-                com.example.financehub.sync.SyncState.SYNCING -> SyncRepositoryState.SYNCING
-                com.example.financehub.sync.SyncState.ERROR -> SyncRepositoryState.ERROR
+                SyncState.IDLE -> SyncRepositoryState.IDLE
+                SyncState.SYNCING -> SyncRepositoryState.SYNCING
+                SyncState.ERROR -> SyncRepositoryState.ERROR
             }
         }
     }
@@ -733,5 +754,8 @@ class ExpenseRepository(
                pendingGraphEdges.isNotEmpty()
     }
 
+    fun getOperationalExpensesForTheMonth(currentMonth: Int, currentYear: Int): Flow<Int> {
+        return expenseDao.getOperationalExpensesForTheMonth(currentMonth, currentYear)
+    }
 
 }
