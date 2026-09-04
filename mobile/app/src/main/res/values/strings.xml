@@ -6,4 +6,6 @@
     <string name="transactions">Transactions</string>
     <string name="tags">Tags</string>
     <string name="analysis">Analysis</string>
+    <string name="intra_time_period">Intra Time Period Analysis</string>
+    <string name="inter_time_period">Inter Time Period Analysis</string>
 </resources>

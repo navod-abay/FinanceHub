@@ -1,5 +1,8 @@
 package com.example.financehub.viewmodel
 
+import android.os.Build
+import androidx.annotation.RequiresApi
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.graphics.vector.PathNode
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,10 +13,15 @@ import com.example.financehub.data.database.Tags
 import com.example.financehub.data.database.models.TagRef
 import com.example.financehub.data.repository.ExpenseRepository
 import com.example.financehub.data.repository.SyncRepositoryState
+import com.example.financehub.service.ReccommendationService
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlin.collections.minus
+
+
+private const val maxRecommendedTags = 5
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 class TransactionsViewModel(private val repository: ExpenseRepository) : ViewModel() {
@@ -26,6 +34,90 @@ class TransactionsViewModel(private val repository: ExpenseRepository) : ViewMod
     
     private val _operationResult = MutableStateFlow<String?>(null)
     val operationResult: StateFlow<String?> = _operationResult
+
+    val reccommendationService = ReccommendationService(repository)
+
+    private val _reccommendedTags = MutableStateFlow<List<TagRef>>(emptyList())
+    val reccommendedTags: StateFlow<List<TagRef>> = _reccommendedTags.asStateFlow()
+    private val _selectedTags = MutableStateFlow<Set<TagRef>>(emptySet())
+    val selectedTags: StateFlow<Set<TagRef>> = _selectedTags.asStateFlow()
+
+    private var _newTagText = MutableStateFlow<String>("")
+    val newTagText = _newTagText.asStateFlow()
+    val newlyAddedTags = mutableStateListOf<String>()
+
+    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
+    fun clickSuggestedTag(tag: TagRef) {
+        _selectedTags.value = if(_selectedTags.value.contains(tag)) {
+            _selectedTags.value - tag
+        } else {
+            _newTagText.value = ""
+            getReccomendations(tag.tagID)
+            _selectedTags.value + tag
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
+    fun getReccomendations(tagId: Int) {
+        viewModelScope.launch {
+            val recs = reccommendationService.getTagReccomendations(tagId) - _selectedTags.value
+            if (_reccommendedTags.value.isNotEmpty()) {
+                val tagRefMap = mutableMapOf<Int, TagRef>()
+                recs.associateByTo(tagRefMap){it.tagID}
+                val newRecs = mutableListOf<TagRef>()
+                val existingNotRecommendedTagRef = mutableListOf<TagRef>()
+                _reccommendedTags.value.forEach {
+                    if (tagRefMap.contains(it.tagID) &&  newRecs.size < maxRecommendedTags) {
+                        newRecs.addLast(it)
+                        tagRefMap.remove(it.tagID)
+                    }else {
+                        existingNotRecommendedTagRef.addLast(it)
+                    }
+                }
+
+                val newPreviouslyUnrecommendedTagRef = tagRefMap.values
+                for (tagRef in newPreviouslyUnrecommendedTagRef) {
+                    if (newRecs.size > maxRecommendedTags)
+                        break
+                    newRecs.addLast(tagRef)
+                }
+                for (tagRef in existingNotRecommendedTagRef) {
+                    if (newRecs.size > maxRecommendedTags)
+                        break
+                    newRecs.addLast(tagRef)
+                }
+                _reccommendedTags.value = newRecs
+
+            }
+            else {
+                _reccommendedTags.value = recs
+            }
+        }
+    }
+
+    fun onNewTagTextAddition() {
+        if (_newTagText.value.isNotBlank()) {
+            newlyAddedTags.add(_newTagText.value) // Mutates the state directly in the VM
+            _newTagText.value = ""        // Clears out the input text field
+        }
+    }
+
+    fun updateNewTagText(newQuery: String) {
+        _newTagText.value = newQuery
+    }
+
+    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
+    fun clickRecommendedTag(tag: TagRef) {
+        _selectedTags.value = if (_selectedTags.value.contains(tag)) {
+            _reccommendedTags.value.filter { tag.tagID != it.tagID }
+            _selectedTags.value.minus(tag)
+        } else {
+            _reccommendedTags.value.filter { tag.tagID != it.tagID }
+            getReccomendations(tag.tagID)
+            _selectedTags.value.plus(tag)
+        }
+
+    }
 
     fun selectExpenseForEdit(expense: ExpenseWithTags) {
         _selectedExpense.value = expense
@@ -144,6 +236,10 @@ class TransactionsViewModel(private val repository: ExpenseRepository) : ViewMod
             preset = null,
             version = cur.version + 1
         )
+    }
+
+    fun deselectTag(tag: TagRef) {
+        _selectedTags.value -= tag
     }
 
     val pagedExpenses: Flow<androidx.paging.PagingData<ExpenseWithTags>> = _filterParams

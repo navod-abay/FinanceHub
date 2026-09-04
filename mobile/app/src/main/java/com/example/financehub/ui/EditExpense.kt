@@ -1,5 +1,7 @@
 package com.example.financehub.ui
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,9 +13,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
@@ -39,6 +43,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -67,6 +74,7 @@ fun EditExpenseScreen(
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ExpenseEditForm(
@@ -81,15 +89,18 @@ fun ExpenseEditForm(
     var year by remember { mutableStateOf(expense.year.toString()) }
     var month by remember { mutableStateOf(expense.month.toString()) }
     var date by remember { mutableStateOf(expense.date.toString()) }
-    var newlyAddedTags by remember { mutableStateOf(setOf<String>()) }
+    val newlyAddedTags  = viewModel.newlyAddedTags
     val suggestedTags by viewModel.matchingTags.collectAsState()
+    val reccommendedTags by viewModel.reccommendedTags.collectAsState()
+
+    val focusManager = LocalFocusManager.current
 
     // Extract tag strings from the Tags objects
     val initialTags = expenseWithTags.tags.map { it -> TagRef(it.tagID, it.tag) }.toSet()
-    var selectedTags by remember { mutableStateOf(initialTags.toSet()) }
+    val selectedTags by viewModel.selectedTags.collectAsState()
 
     var showTagDialog by remember { mutableStateOf(false) }
-    var newTagText by remember { mutableStateOf("") }
+    val newTagText by viewModel.newTagText.collectAsState()
 
     // Predefined tags (you can modify this list)
     val predefinedTags = remember {
@@ -173,10 +184,7 @@ fun ExpenseEditForm(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(
-                    items = selectedTags.toList(),
-                    key = { tag -> tag.tagID },
-                ) { tag ->
+                items(selectedTags.toList()) { tag ->
                     InputChip(
                         selected = true,
                         onClick = { },
@@ -184,7 +192,7 @@ fun ExpenseEditForm(
                         trailingIcon = {
                             IconButton(
                                 onClick = {
-                                    selectedTags = selectedTags - tag
+                                    viewModel.deselectTag(tag)
                                 }
                             ) {
                                 Icon(
@@ -195,20 +203,78 @@ fun ExpenseEditForm(
                         }
                     )
                 }
-
-                item {
-                    AssistChip(
-                        onClick = { showTagDialog = true },
-                        label = { Text("Add Tag") },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = "Add tag"
-                            )
+                items(newlyAddedTags) { tag ->
+                    InputChip(
+                        selected = true,
+                        onClick = { },
+                        label = { Text(tag) },
+                        trailingIcon = {
+                            IconButton(
+                                onClick = {
+                                    newlyAddedTags.remove(tag)
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Remove tag"
+                                )
+                            }
                         }
                     )
                 }
+                items(suggestedTags) { tag ->
+                    InputChip(
+                        selected = false,
+                        onClick = { viewModel.clickSuggestedTag(tag)},
+                        label = { Text(tag.tag) },
+                    )
+                }
+                items(reccommendedTags) { tag ->
+                    InputChip(
+                        selected = false,
+                        onClick = { viewModel.clickRecommendedTag(tag)},
+                        label = { Text(tag.tag) },
+                    )
+                }
+
             }
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Custom tag input
+                OutlinedTextField(
+                    value = newTagText,
+                    onValueChange = {
+                        viewModel.updateNewTagText(it)
+                    },
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences, // Capitalize first letter
+                        imeAction = ImeAction.Done // Show "Done" on keyboard
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            focusManager.clearFocus()
+                            showTagDialog = false
+                        }
+                    ),
+                    label = { Text("New Tag") },
+                    modifier = Modifier.fillMaxWidth(),
+                    trailingIcon = {
+                        if(newTagText.isNotEmpty()) {
+                            IconButton(onClick = {viewModel.onNewTagTextAddition()}) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = "Add New Tag"
+                                )
+                            }
+                        }
+                    }
+                )
+
+            }
+
+
+
 
             // Submit and Cancel buttons
             Row(
@@ -259,79 +325,5 @@ fun ExpenseEditForm(
     }
 
     // Tag selection dialog
-    if (showTagDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                showTagDialog = false
-                newTagText = ""
-            },
-            title = { Text("Add Tag") },
-            text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Custom tag input
-                    OutlinedTextField(
-                        value = newTagText,
-                        onValueChange = {
-                            newTagText = it
-                            viewModel.updateTagSearch(it)
-                        },
 
-                        label = { Text("New Tag") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // Predefined tags
-                    Text(
-                        text = "Suggested Tags",
-                        style = MaterialTheme.typography.titleSmall
-                    )
-
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        selectedTags.forEach { tag ->
-                            FilterChip(
-                                selected = tag in selectedTags,
-                                onClick = {
-                                    selectedTags = if (tag in selectedTags) {
-                                        selectedTags - tag
-                                    } else {
-                                        selectedTags + tag
-                                    }
-                                },
-                                label = { Text(tag.tag) }
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (newTagText.isNotBlank()) {
-                            newlyAddedTags = newlyAddedTags + newTagText
-                            newTagText = ""
-                        }
-                        showTagDialog = false
-                    }
-                ) {
-                    Text("Add")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showTagDialog = false
-                        newTagText = ""
-                    }
-                ) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
 }

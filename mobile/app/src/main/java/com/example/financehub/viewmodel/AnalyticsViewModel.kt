@@ -2,10 +2,10 @@ package com.example.financehub.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.financehub.data.database.ExpenseWithTags
-import com.example.financehub.data.database.Tags
 import com.example.financehub.data.database.models.TagRef
 import com.example.financehub.data.repository.ExpenseRepository
+import com.example.financehub.data.repository.ExpensesAnalytics
+import com.example.financehub.data.repository.TimeAggregation
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -14,6 +14,7 @@ import java.time.format.DateTimeFormatter
 import com.example.financehub.data.repository.TimeSeriesPoint
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Data class representing a point in time with an expense amount
@@ -23,8 +24,7 @@ import kotlinx.coroutines.FlowPreview
 data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
 
-
-class AnalyticsViewModel  constructor(
+class AnalyticsViewModel(
     private val repository: ExpenseRepository
 ) : ViewModel() {
 
@@ -39,34 +39,50 @@ class AnalyticsViewModel  constructor(
     private val _selectedTags = MutableStateFlow<List<String>>(emptyList())
     val selectedTags: StateFlow<List<String>> = _selectedTags
 
+    private val _selectedTimePeriod = MutableStateFlow<TimeAggregation>(
+        TimeAggregation.CALENDAR_MONTH
+    )
+    val selectedTimePeriod: StateFlow<TimeAggregation> = _selectedTimePeriod
+
     // All available tags
-    private val _availableTags = MutableStateFlow<List<TagRef>>(emptyList())
-    val availableTags: StateFlow<List<TagRef>> = _availableTags
+    val availableTags: StateFlow<List<TagRef>> = repository.getMatchingTags("").stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        emptyList()
+    )
+    val expensesAnalytics: StateFlow<ExpensesAnalytics> =
+        combine(startDate, endDate, selectedTags) { start, end, tags ->
+            Triple(start, end, tags)
+        }.flatMapLatest { (start, end, tags) ->
+            repository.getExpensesAnalysisDetails(start, end, tags)
+                .onStart {
+                    _isLoading.value = true
+                }
+                .onEach {
+                    _isLoading.value = false
+                }
 
-    // Filtered expenses
-    private val _filteredExpenses = MutableStateFlow<List<ExpenseWithTags>>(emptyList())
-    val filteredExpenses: StateFlow<List<ExpenseWithTags>> = _filteredExpenses
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ExpensesAnalytics())
 
-    // Analytics data
-    private val _totalAmount = MutableStateFlow(0)
-    val totalAmount: StateFlow<Int> = _totalAmount
-
-    private val _monthlyAverage = MutableStateFlow(0.0)
-    val monthlyAverage: StateFlow<Double> = _monthlyAverage
-
-    private val _expensesByTag = MutableStateFlow<Map<String, Int>>(emptyMap())
-    val expensesByTag: StateFlow<Map<String, Int>> = _expensesByTag
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val expensesByTag: StateFlow<Map<String, Int>> =
+        combine(startDate, endDate, selectedTags) { start, end, tags ->
+            Triple(start, end, tags)
+        }.flatMapLatest { (start, end, tags) ->
+            repository.getExpensesByTag(start, end, tags)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     private var _tagSearchText = MutableStateFlow<String>("")
     val tagSearchText = _tagSearchText.asStateFlow()
     fun updateTagSearchText(newQuery: String) {
         _tagSearchText.value = newQuery
     }
+
     @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
     val matchingTags: StateFlow<List<TagRef>> = tagSearchText
-        .debounce(300) // Wait for user to stop typing
+        .debounce(300.milliseconds) // Wait for user to stop typing
         .flatMapLatest { query ->
-            if (query.isBlank()) _availableTags else repository.getMatchingTags(query)
+            if (query.isBlank()) availableTags else repository.getMatchingTags(query)
         }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
@@ -94,60 +110,31 @@ class AnalyticsViewModel  constructor(
     val isLoading: StateFlow<Boolean> = _isLoading
 
     // Time series data
-    private val _timeSeriesData = MutableStateFlow<List<TimeSeriesPoint>>(emptyList())
-    val timeSeriesData: StateFlow<List<TimeSeriesPoint>> = _timeSeriesData
+    val timeSeriesData: StateFlow<List<TimeSeriesPoint>> = combine(
+        startDate,
+        endDate,
+        selectedTags,
+        selectedTimePeriod
+    ) { start, end, tags, aggregation ->
+        Quadruple(start, end, tags, aggregation)
+    }.flatMapLatest { (start, end, tags, aggregation) ->
+        repository.getExpensesOverTime(start, end, tags)
+            .map { timeSeriesData ->
+                repository.aggregateTimeSeriesData(
+                    timeSeriesData,
+                    aggregation
+                )
+            }
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        emptyList()
+    )
 
-    // Time aggregation
-    private val _timeAggregation = MutableStateFlow(ExpenseRepository.TimeAggregation.DAILY)
-    val timeAggregation: StateFlow<ExpenseRepository.TimeAggregation> = _timeAggregation
 
     init {
-        // Load initial data
-        viewModelScope.launch {
-            repository.getMatchingTags("").collect { tags ->
-                _availableTags.value = tags
-            }
-        }
-
         // Set default to current month
         setDateRangePreset(DateRangePreset.CURRENT_MONTH)
-
-        // Collect filtered expenses and update analytics when filters change
-        viewModelScope.launch {
-            combine(startDate, endDate, selectedTags) { start, end, tags ->
-                Triple(start, end, tags)
-            }.collectLatest { (start, end, tags) ->
-                _isLoading.value = true
-                repository.getFilteredExpenses(start, end, tags).collect { expenses ->
-                    _filteredExpenses.value = expenses
-                    _totalAmount.value = repository.calculateTotalAmount(expenses)
-                    _monthlyAverage.value = repository.calculateMonthlyAverage(expenses, start, end)
-                    _isLoading.value = false
-                }
-            }
-        }
-
-        // Collect expenses by tag
-        viewModelScope.launch {
-            combine(startDate, endDate, selectedTags) { start, end, tags ->
-                Triple(start, end, tags)
-            }.collectLatest { (start, end, tags) ->
-                repository.getExpensesByTag(start, end, tags).collect { tagAmounts ->
-                    _expensesByTag.value = tagAmounts
-                }
-            }
-        }
-
-        // Collect time series data
-        viewModelScope.launch {
-            combine(startDate, endDate, selectedTags, timeAggregation) { start, end, tags, aggregation ->
-                Quadruple(start, end, tags, aggregation)
-            }.collectLatest { (start, end, tags, aggregation) ->
-                repository.getExpensesOverTime(start, end, tags).collect { rawData:List<TimeSeriesPoint> ->
-                    _timeSeriesData.value = repository.aggregateTimeSeriesData(rawData, aggregation)
-                }
-            }
-        }
 
         // Update date range display
         viewModelScope.launch {
@@ -178,26 +165,32 @@ class AnalyticsViewModel  constructor(
                 currentMonth.atDay(1),
                 currentMonth.atEndOfMonth()
             )
+
             DateRangePreset.PREVIOUS_MONTH -> Pair(
                 previousMonth.atDay(1),
                 previousMonth.atEndOfMonth()
             )
+
             DateRangePreset.CURRENT_YEAR -> Pair(
                 LocalDate.of(today.year, 1, 1),
                 LocalDate.of(today.year, 12, 31)
             )
+
             DateRangePreset.PREVIOUS_YEAR -> Pair(
                 LocalDate.of(today.year - 1, 1, 1),
                 LocalDate.of(today.year - 1, 12, 31)
             )
+
             DateRangePreset.LAST_3_MONTHS -> Pair(
                 today.minusMonths(3).withDayOfMonth(1),
                 today
             )
+
             DateRangePreset.LAST_6_MONTHS -> Pair(
                 today.minusMonths(6).withDayOfMonth(1),
                 today
             )
+
             DateRangePreset.CUSTOM -> return // Don't change dates for custom
         }
 
@@ -227,6 +220,10 @@ class AnalyticsViewModel  constructor(
     }
 
     fun selectAllTags() {
-        _selectedTags.value = _availableTags.value.map { it.tag }
+        _selectedTags.value = availableTags.value.map { it.tag }
+    }
+
+    fun setSelectedTimePeriod(timePeriod: TimeAggregation) {
+        _selectedTimePeriod.value = timePeriod
     }
 }

@@ -1,8 +1,6 @@
 package com.example.financehub.data.repository
 
-import android.content.Context
 import android.util.Log
-import androidx.compose.runtime.currentRecomposeScope
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
@@ -23,7 +21,6 @@ import com.example.financehub.data.database.Tags
 import com.example.financehub.data.database.Target
 import com.example.financehub.data.database.models.TagRef
 import com.example.financehub.data.datastore.AnalyticsDatastore
-import com.example.financehub.data.datastore.PersistentAnalyticData
 import com.example.financehub.viewmodel.TargetWithTag
 import com.example.financehub.viewmodel.FilterParams
 import com.example.financehub.sync.SyncManager
@@ -62,6 +59,15 @@ data class HomeScreenAnalytics (
     val operationalExpensesAllMonthAverage: Float,
     val operationalExpensesAverageIncrement: Float,
     )
+enum class TimeAggregation(val displayName: String) {
+    DAILY("Daily"), WEEKLY("Weekly"), CALENDAR_MONTH("Calendar Month")
+}
+data class ExpensesAnalytics(
+    val expensesList: List<ExpenseWithTags> = emptyList(),
+    val totalAmount: Int = 0,
+    val monthlyAverage: Double = 0.0,
+    val expenseCount: Int = 0
+)
 
 class ExpenseRepository(
     private val expenseDao: ExpenseDao,
@@ -333,16 +339,21 @@ class ExpenseRepository(
         }
     }
 
-    /**
-     * Get current month expenses
-     * @param tagNames Optional list of tag names to filter by
-     * @return Flow of current month expenses
-     */
-    fun getCurrentMonthExpenses(tagNames: List<String> = emptyList()): Flow<List<ExpenseWithTags>> {
-        val today = LocalDate.now()
-        val firstDayOfMonth = today.withDayOfMonth(1)
-        return getFilteredExpenses(firstDayOfMonth, today, tagNames)
+    fun getExpensesAnalysisDetails(
+        startDate: LocalDate,
+        endDate: LocalDate,
+        tagNames: List<String> = emptyList()
+    ): Flow<ExpensesAnalytics> {
+        return getFilteredExpenses(startDate, endDate, tagNames).map { expenses ->
+            ExpensesAnalytics(
+                expensesList = expenses,
+                totalAmount = calculateTotalAmount(expenses),
+                monthlyAverage = calculateMonthlyAverage(expenses, startDate, endDate),
+                expenseCount = expenses.size
+            )
+        }
     }
+
 
     /**
      * Calculate total amount from filtered expenses
@@ -491,7 +502,7 @@ class ExpenseRepository(
                 }
             }
 
-            TimeAggregation.MONTHLY -> {
+            TimeAggregation.CALENDAR_MONTH -> {
                 // Group by month
                 timeSeriesData.groupBy { point ->
                     // Get the first day of the month
@@ -509,9 +520,7 @@ class ExpenseRepository(
     /**
      * Aggregation periods for time series data
      */
-    enum class TimeAggregation {
-        DAILY, WEEKLY, MONTHLY
-    }
+
 
     // Add a new target to the database with sync support
     suspend fun addTarget(month: Int, year: Int, tag: TagRef, amount: Int) {
