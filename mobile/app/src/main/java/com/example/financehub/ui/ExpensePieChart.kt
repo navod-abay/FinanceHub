@@ -40,26 +40,12 @@ fun ExpensePieChart(
     // Calculate total amount
     val totalAmount = tagAmounts.values.sum()
 
-    // Define a list of colors to use for the pie chart slices
-    val colors = listOf(
-        Color(0xFF6200EE), // Purple
-        Color(0xFF3700B3), // Dark Purple
-        Color(0xFF03DAC5), // Teal
-        Color(0xFF018786), // Dark Teal
-        Color(0xFFFF0266), // Pink
-        Color(0xFFB00020), // Red
-        Color(0xFFF86734), // Orange
-        Color(0xFF4CAF50), // Green
-        Color(0xFF2196F3), // Blue
-        Color(0xFFFFEB3B)  // Yellow
-    )
-
-    // Calculate the percentages and assign colors
+    // Calculate the percentages and assign colors from the shared chart palette
     val pieData = tagAmounts.entries
         .sortedByDescending { it.value }
         .mapIndexed { index, entry ->
             val percentage = entry.value.toFloat() / totalAmount
-            Triple(entry.key, entry.value, colors[index % colors.size])
+            Triple(entry.key, entry.value, seriesColor(index))
         }
 
     Card(

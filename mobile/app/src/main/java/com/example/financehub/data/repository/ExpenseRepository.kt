@@ -1,8 +1,6 @@
 package com.example.financehub.data.repository
 
-import android.content.Context
 import android.util.Log
-import androidx.compose.runtime.currentRecomposeScope
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
@@ -23,7 +21,6 @@ import com.example.financehub.data.database.Tags
 import com.example.financehub.data.database.Target
 import com.example.financehub.data.database.models.TagRef
 import com.example.financehub.data.datastore.AnalyticsDatastore
-import com.example.financehub.data.datastore.PersistentAnalyticData
 import com.example.financehub.viewmodel.TargetWithTag
 import com.example.financehub.viewmodel.FilterParams
 import com.example.financehub.sync.SyncManager
@@ -51,6 +48,16 @@ data class TimeSeriesPoint(
     val amount: Int
 )
 
+/**
+ * A per-tag spending series over the analysed period.
+ * @param expenseCount how many expenses carry this tag - drives the "most commonly occurring" ranking
+ */
+data class TagTimeSeries(
+    val label: String,
+    val points: List<TimeSeriesPoint>,
+    val expenseCount: Int
+)
+
 data class HomeScreenAnalytics (
     val allExpensesCurrentMonthTotal: Int,
     val allExpensesCurrentMonthAverage: Float,
@@ -62,6 +69,15 @@ data class HomeScreenAnalytics (
     val operationalExpensesAllMonthAverage: Float,
     val operationalExpensesAverageIncrement: Float,
     )
+enum class TimeAggregation(val displayName: String) {
+    DAILY("Daily"), WEEKLY("Weekly"), CALENDAR_MONTH("Calendar Month")
+}
+data class ExpensesAnalytics(
+    val expensesList: List<ExpenseWithTags> = emptyList(),
+    val totalAmount: Int = 0,
+    val monthlyAverage: Double = 0.0,
+    val expenseCount: Int = 0
+)
 
 class ExpenseRepository(
     private val expenseDao: ExpenseDao,
@@ -333,16 +349,21 @@ class ExpenseRepository(
         }
     }
 
-    /**
-     * Get current month expenses
-     * @param tagNames Optional list of tag names to filter by
-     * @return Flow of current month expenses
-     */
-    fun getCurrentMonthExpenses(tagNames: List<String> = emptyList()): Flow<List<ExpenseWithTags>> {
-        val today = LocalDate.now()
-        val firstDayOfMonth = today.withDayOfMonth(1)
-        return getFilteredExpenses(firstDayOfMonth, today, tagNames)
+    fun getExpensesAnalysisDetails(
+        startDate: LocalDate,
+        endDate: LocalDate,
+        tagNames: List<String> = emptyList()
+    ): Flow<ExpensesAnalytics> {
+        return getFilteredExpenses(startDate, endDate, tagNames).map { expenses ->
+            ExpensesAnalytics(
+                expensesList = expenses,
+                totalAmount = calculateTotalAmount(expenses),
+                monthlyAverage = calculateMonthlyAverage(expenses, startDate, endDate),
+                expenseCount = expenses.size
+            )
+        }
     }
+
 
     /**
      * Calculate total amount from filtered expenses
@@ -465,6 +486,70 @@ class ExpenseRepository(
     }
 
     /**
+     * Get a spending time series per tag for the filtered period.
+     *
+     * Note: an expense carrying N tags contributes its full amount to each of the N series
+     * (the same convention as [getExpensesByTag]), so the tag series do not sum to the overall total.
+     *
+     * @param startDate The start date for filtering
+     * @param endDate The end date for filtering
+     * @param tagNames Optional list of tags to filter the analysed expenses by
+     * @return Flow of one series per tag, plus an "Untagged" series when applicable
+     */
+    fun getExpensesByTagOverTime(
+        startDate: LocalDate,
+        endDate: LocalDate,
+        tagNames: List<String> = emptyList()
+    ): Flow<List<TagTimeSeries>> {
+        return getFilteredExpenses(startDate, endDate, tagNames).map { expenses ->
+            // tag -> (date -> amount)
+            val tagDateMap = mutableMapOf<String, MutableMap<LocalDate, Int>>()
+            val tagCounts = mutableMapOf<String, Int>()
+
+            expenses.forEach { expenseWithTags ->
+                val expense = expenseWithTags.expense
+                val date = LocalDate.of(expense.year, expense.month, expense.date)
+                val amount = expense.amount
+
+                val labels = if (expenseWithTags.tags.isEmpty()) {
+                    listOf("Untagged")
+                } else {
+                    expenseWithTags.tags.map { it.tag }
+                }
+
+                labels.forEach { label ->
+                    val dateMap = tagDateMap.getOrPut(label) { mutableMapOf() }
+                    dateMap[date] = (dateMap[date] ?: 0) + amount
+                    tagCounts[label] = (tagCounts[label] ?: 0) + 1
+                }
+            }
+
+            tagDateMap.map { (label, dateMap) ->
+                TagTimeSeries(
+                    label = label,
+                    points = dateMap.map { (date, amount) -> TimeSeriesPoint(date, amount) }
+                        .sortedBy { it.date },
+                    expenseCount = tagCounts[label] ?: 0
+                )
+            }
+        }
+    }
+
+    /**
+     * Convert a series into a running total, so each point carries the sum of itself
+     * and everything before it.
+     * @param points Time series points (sorted by date internally)
+     * @return Accumulated time series points
+     */
+    fun accumulate(points: List<TimeSeriesPoint>): List<TimeSeriesPoint> {
+        var runningTotal = 0
+        return points.sortedBy { it.date }.map { point ->
+            runningTotal += point.amount
+            TimeSeriesPoint(point.date, runningTotal)
+        }
+    }
+
+    /**
      * Aggregate expenses by time period (daily, weekly, monthly)
      * @param timeSeriesData The raw time series data
      * @param aggregation The aggregation period (DAILY, WEEKLY, MONTHLY)
@@ -491,7 +576,7 @@ class ExpenseRepository(
                 }
             }
 
-            TimeAggregation.MONTHLY -> {
+            TimeAggregation.CALENDAR_MONTH -> {
                 // Group by month
                 timeSeriesData.groupBy { point ->
                     // Get the first day of the month
@@ -509,9 +594,7 @@ class ExpenseRepository(
     /**
      * Aggregation periods for time series data
      */
-    enum class TimeAggregation {
-        DAILY, WEEKLY, MONTHLY
-    }
+
 
     // Add a new target to the database with sync support
     suspend fun addTarget(month: Int, year: Int, tag: TagRef, amount: Int) {
